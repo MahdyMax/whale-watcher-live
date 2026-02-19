@@ -39,7 +39,7 @@ export function TransactionColumn({ title, transactions, type }: Props) {
               <Radar className="h-8 w-8 mx-auto animate-pulse opacity-40" />
               <div className="space-y-1">
                 <p className="text-sm font-medium">Scanning for whale {type}s</p>
-                <p className="text-xs opacity-60">$1M – $10M threshold</p>
+                <p className="text-xs opacity-60">$1 – $10M threshold</p>
               </div>
             </div>
           </div>
