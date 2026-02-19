@@ -1,6 +1,5 @@
 import type { WhaleTransaction } from '@/hooks/useWhaleTransactions';
 import { TransactionCard } from './TransactionCard';
-import { AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Radar } from 'lucide-react';
 
 interface Props {
@@ -44,11 +43,9 @@ export function TransactionColumn({ title, transactions, type }: Props) {
             </div>
           </div>
         ) : (
-          <AnimatePresence initial={false} mode="popLayout">
-            {transactions.map((tx) => (
-              <TransactionCard key={tx.id} tx={tx} />
-            ))}
-          </AnimatePresence>
+          transactions.map((tx) => (
+            <TransactionCard key={tx.id} tx={tx} />
+          ))
         )}
       </div>
     </div>

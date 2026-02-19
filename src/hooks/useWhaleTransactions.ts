@@ -13,7 +13,8 @@ export interface WhaleTransaction {
 const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
 const MIN_USD = 1;
 const MAX_USD = 10_000_000;
-const MAX_TRANSACTIONS = 50;
+const MAX_TRANSACTIONS = 40;
+const BATCH_INTERVAL = 500; // flush every 500ms
 
 export function useWhaleTransactions() {
   const [buys, setBuys] = useState<WhaleTransaction[]>([]);
@@ -22,15 +23,33 @@ export function useWhaleTransactions() {
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [totalMonitored, setTotalMonitored] = useState(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const buyBufferRef = useRef<WhaleTransaction[]>([]);
+  const sellBufferRef = useRef<WhaleTransaction[]>([]);
+  const flushRef = useRef<ReturnType<typeof setInterval>>();
+  const monitorCountRef = useRef(0);
 
-  const addTransaction = useCallback((tx: WhaleTransaction) => {
-    if (tx.type === 'buy') {
-      setBuys(prev => [tx, ...prev].slice(0, MAX_TRANSACTIONS));
-    } else {
-      setSells(prev => [tx, ...prev].slice(0, MAX_TRANSACTIONS));
-    }
+  // Flush buffered transactions into state periodically
+  useEffect(() => {
+    flushRef.current = setInterval(() => {
+      if (buyBufferRef.current.length > 0) {
+        const newBuys = buyBufferRef.current;
+        buyBufferRef.current = [];
+        setBuys(prev => [...newBuys, ...prev].slice(0, MAX_TRANSACTIONS));
+      }
+      if (sellBufferRef.current.length > 0) {
+        const newSells = sellBufferRef.current;
+        sellBufferRef.current = [];
+        setSells(prev => [...newSells, ...prev].slice(0, MAX_TRANSACTIONS));
+      }
+      setTotalMonitored(monitorCountRef.current);
+    }, BATCH_INTERVAL);
+
+    return () => {
+      if (flushRef.current) clearInterval(flushRef.current);
+    };
   }, []);
 
   const connect = useCallback(() => {
@@ -53,7 +72,7 @@ export function useWhaleTransactions() {
           const usdValue = price * quantity;
 
           setCurrentPrice(price);
-          setTotalMonitored(prev => prev + 1);
+          monitorCountRef.current += 1;
 
           if (usdValue >= MIN_USD && usdValue <= MAX_USD) {
             const tx: WhaleTransaction = {
@@ -65,7 +84,11 @@ export function useWhaleTransactions() {
               exchange: 'Binance',
               timestamp: new Date(data.T),
             };
-            addTransaction(tx);
+            if (tx.type === 'buy') {
+              buyBufferRef.current.push(tx);
+            } else {
+              sellBufferRef.current.push(tx);
+            }
           }
         } catch (e) {
           console.error('Parse error:', e);
@@ -81,11 +104,11 @@ export function useWhaleTransactions() {
         setIsConnected(false);
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       };
-    } catch (e) {
+    } catch {
       setError('Failed to connect');
       reconnectTimeoutRef.current = setTimeout(connect, 3000);
     }
-  }, [addTransaction]);
+  }, []);
 
   useEffect(() => {
     connect();

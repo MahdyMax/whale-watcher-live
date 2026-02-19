@@ -1,18 +1,13 @@
-import { motion } from 'framer-motion';
+import { memo } from 'react';
 import type { WhaleTransaction } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-export function TransactionCard({ tx }: { tx: WhaleTransaction }) {
+export const TransactionCard = memo(function TransactionCard({ tx }: { tx: WhaleTransaction }) {
   const isBuy = tx.type === 'buy';
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -20, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={`glass rounded-xl p-4 space-y-2.5 border-l-2 ${
+    <div
+      className={`glass rounded-xl p-4 space-y-2.5 border-l-2 animate-fade-in ${
         isBuy ? 'border-l-buy' : 'border-l-sell'
       }`}
     >
@@ -62,6 +57,6 @@ export function TransactionCard({ tx }: { tx: WhaleTransaction }) {
           />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
