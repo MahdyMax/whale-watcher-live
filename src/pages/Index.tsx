@@ -11,13 +11,16 @@ const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures'];
 
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
-  const { transactions, isConnected, error, currentPrice, totalMonitored } =
+  const { buys, sells, isConnected, error, currentPrice, totalMonitored } =
     useWhaleTransactions();
 
   const allTransactions = useMemo(() => {
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
-    return transactions.filter((tx) => exchanges.includes(tx.exchange));
-  }, [transactions, tab]);
+    return [...buys, ...sells]
+      .filter((tx) => exchanges.includes(tx.exchange))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 25);
+  }, [buys, sells, tab]);
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -57,7 +60,7 @@ const Index = () => {
         </button>
       </div>
 
-      <main className="flex-1 min-h-0 overflow-hidden">
+      <main className="flex-1 overflow-hidden p-3 sm:p-4">
         {allTransactions.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3 text-muted-foreground">
@@ -71,7 +74,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto h-full overflow-hidden">
+          <div className="max-w-2xl mx-auto space-y-1">
             {allTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
