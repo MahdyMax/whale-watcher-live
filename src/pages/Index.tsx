@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Header } from '@/components/whale/Header';
 import { TransactionCard } from '@/components/whale/TransactionCard';
 import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
@@ -14,12 +14,19 @@ const Index = () => {
   const { buys, sells, isConnected, error, currentPrice, totalMonitored } =
     useWhaleTransactions();
 
+  const cachedRef = useRef<Record<Tab, typeof buys>>({ spot: [], futures: [] });
+
   const allTransactions = useMemo(() => {
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
-    return [...buys, ...sells]
+    const fresh = [...buys, ...sells]
       .filter((tx) => exchanges.includes(tx.exchange))
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 25);
+
+    if (fresh.length > 0) {
+      cachedRef.current[tab] = fresh;
+    }
+    return cachedRef.current[tab];
   }, [buys, sells, tab]);
 
   return (
