@@ -14,7 +14,7 @@ export interface WhaleTransaction {
 const MIN_USD = 1;
 const MAX_USD = 10_000_000;
 const MAX_TRANSACTIONS = 25;
-const BATCH_INTERVAL = 500;
+const BATCH_INTERVAL = 80; // flush rapidly for one-by-one appearance
 
 // --- Exchange WebSocket configs ---
 
