@@ -11,7 +11,7 @@ export interface WhaleTransaction {
 }
 
 const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
-const MIN_USD = 1_000_000;
+const MIN_USD = 1;
 const MAX_USD = 10_000_000;
 const MAX_TRANSACTIONS = 50;
 
