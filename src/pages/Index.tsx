@@ -59,7 +59,7 @@ const Index = () => {
         </button>
       </div>
 
-      <main className="flex-1 overflow-hidden p-3 sm:p-4">
+      <main className="flex-1 overflow-hidden flex flex-col">
         {allTransactions.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3 text-muted-foreground">
@@ -73,20 +73,22 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto h-full overflow-hidden">
-            {allTransactions.map((tx) => (
-              <TransactionCard
-                key={tx.id}
-                tx={tx}
-                labelOverride={
-                  tab === 'futures'
-                    ? tx.type === 'buy'
-                      ? 'long'
-                      : 'short'
-                    : undefined
-                }
-              />
-            ))}
+          <div className="flex-1 overflow-hidden">
+            <div className="max-w-2xl mx-auto h-full flex flex-col">
+              {allTransactions.map((tx) => (
+                <TransactionCard
+                  key={tx.id}
+                  tx={tx}
+                  labelOverride={
+                    tab === 'futures'
+                      ? tx.type === 'buy'
+                        ? 'long'
+                        : 'short'
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
           </div>
         )}
       </main>
