@@ -106,18 +106,16 @@ export function useWhaleTransactions() {
   const monitorCountRef = useRef(0);
   const connectedCountRef = useRef(0);
 
-  // Flush buffered transactions into state periodically
+  // Flush ONE transaction per tick for steady one-by-one appearance
   useEffect(() => {
     flushRef.current = setInterval(() => {
+      // Alternate: pick from whichever buffer has items, one at a time
       if (buyBufferRef.current.length > 0) {
-        const newBuys = buyBufferRef.current;
-        buyBufferRef.current = [];
-        setBuys((prev) => [...newBuys, ...prev].slice(0, MAX_TRANSACTIONS));
-      }
-      if (sellBufferRef.current.length > 0) {
-        const newSells = sellBufferRef.current;
-        sellBufferRef.current = [];
-        setSells((prev) => [...newSells, ...prev].slice(0, MAX_TRANSACTIONS));
+        const next = buyBufferRef.current.shift()!;
+        setBuys((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
+      } else if (sellBufferRef.current.length > 0) {
+        const next = sellBufferRef.current.shift()!;
+        setSells((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
       }
       setTotalMonitored(monitorCountRef.current);
     }, BATCH_INTERVAL);
