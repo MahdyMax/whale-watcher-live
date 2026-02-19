@@ -7,10 +7,10 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
 
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono animate-fade-in ${
+      className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${
         isBuy
-          ? 'bg-buy-muted border border-buy/15'
-          : 'bg-sell-muted border border-sell/15'
+          ? 'bg-buy-muted border-b border-buy/15'
+          : 'bg-sell-muted border-b border-sell/15'
       }`}
     >
       <div className="flex items-center gap-2 min-w-0">
