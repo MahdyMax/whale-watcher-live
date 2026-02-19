@@ -112,12 +112,12 @@ export function useWhaleTransactions() {
       if (buyBufferRef.current.length > 0) {
         const newBuys = buyBufferRef.current;
         buyBufferRef.current = [];
-        setBuys((prev) => [...newBuys, ...prev].slice(0, MAX_TRANSACTIONS));
+        setBuys((prev) => [...newBuys, ...prev].slice(0, 100));
       }
       if (sellBufferRef.current.length > 0) {
         const newSells = sellBufferRef.current;
         sellBufferRef.current = [];
-        setSells((prev) => [...newSells, ...prev].slice(0, MAX_TRANSACTIONS));
+        setSells((prev) => [...newSells, ...prev].slice(0, 100));
       }
       setTotalMonitored(monitorCountRef.current);
     }, BATCH_INTERVAL);
