@@ -1,3 +1,4 @@
+// BTC Whale Tracker - Real-time WebSocket hook
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface WhaleTransaction {
