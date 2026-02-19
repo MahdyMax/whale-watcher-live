@@ -1,39 +1,46 @@
 import { memo } from 'react';
-import type { WhaleTransaction } from '@/hooks/useWhaleTransactions';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
+import { ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
 
 interface TransactionCardProps {
-  tx: WhaleTransaction;
+  tx: WhaleEvent;
   labelOverride?: string;
 }
 
 export const TransactionCard = memo(function TransactionCard({ tx, labelOverride }: TransactionCardProps) {
   const isBuy = tx.type === 'buy';
-  const label = labelOverride ?? tx.type;
+  const isLiq = tx.type === 'liquidation';
+  const label = labelOverride ?? (isLiq ? 'LIQUIDATED' : tx.type);
+
+  const colorClass = isLiq ? 'text-liquidation' : isBuy ? 'text-buy' : 'text-sell';
+  const bgClass = isLiq ? 'bg-liquidation-muted border-liquidation/15' : isBuy ? 'bg-buy-muted border-buy/15' : 'bg-sell-muted border-sell/15';
 
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${
-        isBuy
-          ? 'bg-buy-muted border-b border-buy/15'
-          : 'bg-sell-muted border-b border-sell/15'
-      }`}
+      className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b`}
     >
       <div className="flex items-center gap-2 min-w-0">
-        {isBuy ? (
-          <ArrowUpRight className="h-3 w-3 text-buy shrink-0" />
+        {isLiq ? (
+          <Zap className={`h-3 w-3 ${colorClass} shrink-0`} />
+        ) : isBuy ? (
+          <ArrowUpRight className={`h-3 w-3 ${colorClass} shrink-0`} />
         ) : (
-          <ArrowDownRight className="h-3 w-3 text-sell shrink-0" />
+          <ArrowDownRight className={`h-3 w-3 ${colorClass} shrink-0`} />
         )}
-        <span className={`font-bold uppercase tracking-wider ${isBuy ? 'text-buy' : 'text-sell'}`}>
+        <span className={`font-bold uppercase tracking-wider ${colorClass}`}>
           {label}
         </span>
-        <span className={`font-bold ${isBuy ? 'text-buy' : 'text-sell'}`}>
+        <span className={`font-bold ${colorClass}`}>
           ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </span>
         <span className="text-muted-foreground hidden sm:inline">
           {tx.btcAmount.toFixed(4)} BTC
         </span>
+        {tx.tradeCount > 1 && (
+          <span className="text-muted-foreground text-[10px]">
+            ({tx.tradeCount} trades)
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 shrink-0">

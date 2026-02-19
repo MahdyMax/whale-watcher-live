@@ -1,10 +1,10 @@
-import type { WhaleTransaction } from '@/hooks/useWhaleTransactions';
+import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 import { TransactionCard } from './TransactionCard';
 import { TrendingUp, TrendingDown, Radar } from 'lucide-react';
 
 interface Props {
   title: string;
-  transactions: WhaleTransaction[];
+  transactions: WhaleEvent[];
   type: 'buy' | 'sell';
 }
 
