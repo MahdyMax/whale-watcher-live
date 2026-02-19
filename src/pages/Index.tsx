@@ -7,10 +7,10 @@ const Index = () => {
   const { buys, sells, isConnected, error, currentPrice, totalMonitored } =
     useWhaleTransactions();
 
-  // Merge and sort all transactions by timestamp descending
-  const allTransactions = [...buys, ...sells].sort(
-    (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-  );
+  // Merge, sort descending, and keep only what fits the screen
+  const allTransactions = [...buys, ...sells]
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    .slice(0, 25);
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -26,7 +26,7 @@ const Index = () => {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto p-3 sm:p-4 scrollbar-thin">
+      <main className="flex-1 overflow-hidden p-3 sm:p-4">
         {allTransactions.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3 text-muted-foreground">
@@ -38,7 +38,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-2">
+          <div className="max-w-2xl mx-auto space-y-1">
             {allTransactions.map((tx) => (
               <TransactionCard key={tx.id} tx={tx} />
             ))}

@@ -7,55 +7,33 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
 
   return (
     <div
-      className={`rounded-xl p-4 space-y-2.5 animate-fade-in ${
+      className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono animate-fade-in ${
         isBuy
-          ? 'bg-buy-muted border border-buy/20'
-          : 'bg-sell-muted border border-sell/20'
+          ? 'bg-buy-muted border border-buy/15'
+          : 'bg-sell-muted border border-sell/15'
       }`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          {isBuy ? (
-            <ArrowUpRight className="h-3.5 w-3.5 text-buy" />
-          ) : (
-            <ArrowDownRight className="h-3.5 w-3.5 text-sell" />
-          )}
-          <span
-            className={`text-xs font-bold uppercase tracking-wider ${
-              isBuy ? 'text-buy' : 'text-sell'
-            }`}
-          >
-            {tx.type}
-          </span>
-        </div>
-        <span className="text-[10px] text-muted-foreground font-mono">
-          {tx.timestamp.toLocaleTimeString()}
-        </span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-xl font-bold font-mono tracking-tight">
+      <div className="flex items-center gap-2 min-w-0">
+        {isBuy ? (
+          <ArrowUpRight className="h-3 w-3 text-buy shrink-0" />
+        ) : (
+          <ArrowDownRight className="h-3 w-3 text-sell shrink-0" />
+        )}
+        <span className={`font-bold ${isBuy ? 'text-buy' : 'text-sell'}`}>
           ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-        </p>
-        <span className="text-xs text-muted-foreground font-mono">
-          {tx.btcAmount.toFixed(4)} BTC @ ${tx.pricePerBtc.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+        </span>
+        <span className="text-muted-foreground hidden sm:inline">
+          {tx.btcAmount.toFixed(4)} BTC
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
           {tx.exchange}
         </span>
-        <div
-          className={`h-1 w-16 rounded-full overflow-hidden ${
-            isBuy ? 'bg-buy/10' : 'bg-sell/10'
-          }`}
-        >
-          <div
-            className={`h-full rounded-full ${isBuy ? 'bg-buy' : 'bg-sell'}`}
-            style={{ width: `${Math.min((tx.usdValue / 10_000_000) * 100, 100)}%` }}
-          />
-        </div>
+        <span className="text-muted-foreground text-[10px]">
+          {tx.timestamp.toLocaleTimeString()}
+        </span>
       </div>
     </div>
   );
