@@ -1,4 +1,4 @@
-// BTC Whale Tracker - Real-time WebSocket hook
+// BTC Whale Tracker - Multi-exchange real-time WebSocket hook
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface WhaleTransaction {
@@ -11,11 +11,84 @@ export interface WhaleTransaction {
   timestamp: Date;
 }
 
-const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade';
 const MIN_USD = 1;
 const MAX_USD = 10_000_000;
 const MAX_TRANSACTIONS = 25;
-const BATCH_INTERVAL = 500; // flush every 500ms
+const BATCH_INTERVAL = 500;
+
+// --- Exchange WebSocket configs ---
+
+interface ExchangeConfig {
+  name: string;
+  url: string;
+  onOpen?: (ws: WebSocket) => void;
+  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number } | null;
+}
+
+const EXCHANGES: ExchangeConfig[] = [
+  // Binance Spot
+  {
+    name: 'Binance',
+    url: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade',
+    parseTrade: (data) => ({
+      price: parseFloat(data.p),
+      quantity: parseFloat(data.q),
+      isSell: data.m,
+      tradeId: `${data.a}`,
+      timestamp: data.T,
+    }),
+  },
+  // Binance Futures
+  {
+    name: 'Binance Futures',
+    url: 'wss://fstream.binance.com/ws/btcusdt@aggTrade',
+    parseTrade: (data) => ({
+      price: parseFloat(data.p),
+      quantity: parseFloat(data.q),
+      isSell: data.m,
+      tradeId: `${data.a}`,
+      timestamp: data.T,
+    }),
+  },
+  // Bybit Spot
+  {
+    name: 'Bybit',
+    url: 'wss://stream.bybit.com/v5/public/spot',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
+    },
+    parseTrade: (raw) => {
+      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
+      const d = raw.data[0];
+      return {
+        price: parseFloat(d.p),
+        quantity: parseFloat(d.v),
+        isSell: d.S === 'Sell',
+        tradeId: d.i,
+        timestamp: d.T,
+      };
+    },
+  },
+  // Bybit Linear (Futures/Leverage)
+  {
+    name: 'Bybit Futures',
+    url: 'wss://stream.bybit.com/v5/public/linear',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
+    },
+    parseTrade: (raw) => {
+      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
+      const d = raw.data[0];
+      return {
+        price: parseFloat(d.p),
+        quantity: parseFloat(d.v),
+        isSell: d.S === 'Sell',
+        tradeId: d.i,
+        timestamp: d.T,
+      };
+    },
+  },
+];
 
 export function useWhaleTransactions() {
   const [buys, setBuys] = useState<WhaleTransaction[]>([]);
@@ -25,12 +98,13 @@ export function useWhaleTransactions() {
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [totalMonitored, setTotalMonitored] = useState(0);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const wsRefs = useRef<(WebSocket | null)[]>([]);
+  const reconnectRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const buyBufferRef = useRef<WhaleTransaction[]>([]);
   const sellBufferRef = useRef<WhaleTransaction[]>([]);
   const flushRef = useRef<ReturnType<typeof setInterval>>();
   const monitorCountRef = useRef(0);
+  const connectedCountRef = useRef(0);
 
   // Flush buffered transactions into state periodically
   useEffect(() => {
@@ -38,12 +112,12 @@ export function useWhaleTransactions() {
       if (buyBufferRef.current.length > 0) {
         const newBuys = buyBufferRef.current;
         buyBufferRef.current = [];
-        setBuys(prev => [...newBuys, ...prev].slice(0, MAX_TRANSACTIONS));
+        setBuys((prev) => [...newBuys, ...prev].slice(0, MAX_TRANSACTIONS));
       }
       if (sellBufferRef.current.length > 0) {
         const newSells = sellBufferRef.current;
         sellBufferRef.current = [];
-        setSells(prev => [...newSells, ...prev].slice(0, MAX_TRANSACTIONS));
+        setSells((prev) => [...newSells, ...prev].slice(0, MAX_TRANSACTIONS));
       }
       setTotalMonitored(monitorCountRef.current);
     }, BATCH_INTERVAL);
@@ -53,23 +127,27 @@ export function useWhaleTransactions() {
     };
   }, []);
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  const connectExchange = useCallback((config: ExchangeConfig, index: number) => {
+    if (wsRefs.current[index]?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(BINANCE_WS_URL);
-      wsRef.current = ws;
+      const ws = new WebSocket(config.url);
+      wsRefs.current[index] = ws;
 
       ws.onopen = () => {
+        connectedCountRef.current += 1;
         setIsConnected(true);
         setError(null);
+        config.onOpen?.(ws);
       };
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          const price = parseFloat(data.p);
-          const quantity = parseFloat(data.q);
+          const raw = JSON.parse(event.data);
+          const trade = config.parseTrade(raw);
+          if (!trade) return;
+
+          const { price, quantity, isSell, tradeId, timestamp } = trade;
           const usdValue = price * quantity;
 
           setCurrentPrice(price);
@@ -77,13 +155,13 @@ export function useWhaleTransactions() {
 
           if (usdValue >= MIN_USD && usdValue <= MAX_USD) {
             const tx: WhaleTransaction = {
-              id: `${data.a}-${data.T}`,
-              type: data.m ? 'sell' : 'buy',
+              id: `${config.name}-${tradeId}-${timestamp}`,
+              type: isSell ? 'sell' : 'buy',
               btcAmount: quantity,
               usdValue,
               pricePerBtc: price,
-              exchange: 'Binance',
-              timestamp: new Date(data.T),
+              exchange: config.name,
+              timestamp: new Date(timestamp),
             };
             if (tx.type === 'buy') {
               buyBufferRef.current.push(tx);
@@ -92,32 +170,34 @@ export function useWhaleTransactions() {
             }
           }
         } catch (e) {
-          console.error('Parse error:', e);
+          console.error(`Parse error (${config.name}):`, e);
         }
       };
 
       ws.onerror = () => {
-        setError('WebSocket connection error');
-        setIsConnected(false);
+        setError(`${config.name} connection error`);
       };
 
       ws.onclose = () => {
-        setIsConnected(false);
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        connectedCountRef.current = Math.max(0, connectedCountRef.current - 1);
+        if (connectedCountRef.current === 0) setIsConnected(false);
+        reconnectRefs.current[index] = setTimeout(() => connectExchange(config, index), 3000);
       };
     } catch {
-      setError('Failed to connect');
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      reconnectRefs.current[index] = setTimeout(() => connectExchange(config, index), 3000);
     }
   }, []);
 
   useEffect(() => {
-    connect();
+    wsRefs.current = new Array(EXCHANGES.length).fill(null);
+    reconnectRefs.current = [];
+    EXCHANGES.forEach((cfg, i) => connectExchange(cfg, i));
+
     return () => {
-      wsRef.current?.close();
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      wsRefs.current.forEach((ws) => ws?.close());
+      reconnectRefs.current.forEach((t) => clearTimeout(t));
     };
-  }, [connect]);
+  }, [connectExchange]);
 
   return { buys, sells, isConnected, error, currentPrice, totalMonitored };
 }
