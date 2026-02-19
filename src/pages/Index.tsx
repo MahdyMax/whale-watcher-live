@@ -18,8 +18,7 @@ const Index = () => {
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
     return [...buys, ...sells]
       .filter((tx) => exchanges.includes(tx.exchange))
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, 25);
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [buys, sells, tab]);
 
   return (
@@ -74,7 +73,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-1">
+          <div className="max-w-2xl mx-auto h-full overflow-hidden">
             {allTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
