@@ -3,6 +3,7 @@ import { TransactionCard } from '@/components/whale/TransactionCard';
 import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
 import { Radar } from 'lucide-react';
 
+// Force clean re-mount after hook changes
 const Index = () => {
   const { buys, sells, isConnected, error, currentPrice, totalMonitored } =
     useWhaleTransactions();
