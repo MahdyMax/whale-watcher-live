@@ -2,8 +2,14 @@ import { memo } from 'react';
 import type { WhaleTransaction } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-export const TransactionCard = memo(function TransactionCard({ tx }: { tx: WhaleTransaction }) {
+interface TransactionCardProps {
+  tx: WhaleTransaction;
+  labelOverride?: string;
+}
+
+export const TransactionCard = memo(function TransactionCard({ tx, labelOverride }: TransactionCardProps) {
   const isBuy = tx.type === 'buy';
+  const label = labelOverride ?? tx.type;
 
   return (
     <div
@@ -19,6 +25,9 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
         ) : (
           <ArrowDownRight className="h-3 w-3 text-sell shrink-0" />
         )}
+        <span className={`font-bold uppercase tracking-wider ${isBuy ? 'text-buy' : 'text-sell'}`}>
+          {label}
+        </span>
         <span className={`font-bold ${isBuy ? 'text-buy' : 'text-sell'}`}>
           ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </span>
