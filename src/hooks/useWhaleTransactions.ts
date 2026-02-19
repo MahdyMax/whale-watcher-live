@@ -14,15 +14,23 @@ export interface WhaleTransaction {
 const MIN_USD = 1;
 const MAX_USD = 10_000_000;
 const MAX_TRANSACTIONS = 100;
-const BATCH_INTERVAL = 80; // flush rapidly for one-by-one appearance
+const _BATCH_INTERVAL = 80;
 
 // --- Exchange WebSocket configs ---
+
+interface TradeResult {
+  price: number;
+  quantity: number;
+  isSell: boolean;
+  tradeId: string;
+  timestamp: number;
+}
 
 interface ExchangeConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number } | null;
+  parseTrades: (data: any) => TradeResult[];
 }
 
 const EXCHANGES: ExchangeConfig[] = [
@@ -30,25 +38,25 @@ const EXCHANGES: ExchangeConfig[] = [
   {
     name: 'Binance',
     url: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade',
-    parseTrade: (data) => ({
+    parseTrades: (data) => [{
       price: parseFloat(data.p),
       quantity: parseFloat(data.q),
       isSell: data.m,
       tradeId: `${data.a}`,
       timestamp: data.T,
-    }),
+    }],
   },
   // Binance Futures
   {
     name: 'Binance Futures',
     url: 'wss://fstream.binance.com/ws/btcusdt@aggTrade',
-    parseTrade: (data) => ({
+    parseTrades: (data) => [{
       price: parseFloat(data.p),
       quantity: parseFloat(data.q),
       isSell: data.m,
       tradeId: `${data.a}`,
       timestamp: data.T,
-    }),
+    }],
   },
   // Bybit Spot
   {
@@ -57,16 +65,15 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
     },
-    parseTrade: (raw) => {
-      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
-      const d = raw.data[0];
-      return {
+    parseTrades: (raw) => {
+      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return [];
+      return raw.data.map((d: any) => ({
         price: parseFloat(d.p),
         quantity: parseFloat(d.v),
         isSell: d.S === 'Sell',
         tradeId: d.i,
         timestamp: d.T,
-      };
+      }));
     },
   },
   // Bybit Linear (Futures/Leverage)
@@ -76,16 +83,15 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
     },
-    parseTrade: (raw) => {
-      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
-      const d = raw.data[0];
-      return {
+    parseTrades: (raw) => {
+      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return [];
+      return raw.data.map((d: any) => ({
         price: parseFloat(d.p),
         quantity: parseFloat(d.v),
         isSell: d.S === 'Sell',
         tradeId: d.i,
         timestamp: d.T,
-      };
+      }));
     },
   },
 ];
@@ -107,18 +113,28 @@ export function useWhaleTransactions() {
   const connectedCountRef = useRef(0);
 
   // Flush ONE transaction per tick for steady one-by-one appearance
+  // But flush faster when buffer is large (initial catch-up)
   useEffect(() => {
     flushRef.current = setInterval(() => {
-      // Alternate: pick from whichever buffer has items, one at a time
-      if (buyBufferRef.current.length > 0) {
+      const buyLen = buyBufferRef.current.length;
+      const sellLen = sellBufferRef.current.length;
+      
+      if (buyLen === 0 && sellLen === 0) {
+        setTotalMonitored(monitorCountRef.current);
+        return;
+      }
+
+      // Pick from the buffer with more items to keep it balanced
+      if (buyLen >= sellLen && buyLen > 0) {
         const next = buyBufferRef.current.shift()!;
         setBuys((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
-      } else if (sellBufferRef.current.length > 0) {
+      } else if (sellLen > 0) {
         const next = sellBufferRef.current.shift()!;
         setSells((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
       }
+      
       setTotalMonitored(monitorCountRef.current);
-    }, BATCH_INTERVAL);
+    }, 50);
 
     return () => {
       if (flushRef.current) clearInterval(flushRef.current);
@@ -142,29 +158,30 @@ export function useWhaleTransactions() {
       ws.onmessage = (event) => {
         try {
           const raw = JSON.parse(event.data);
-          const trade = config.parseTrade(raw);
-          if (!trade) return;
+          const trades = config.parseTrades(raw);
+          if (!trades.length) return;
 
-          const { price, quantity, isSell, tradeId, timestamp } = trade;
-          const usdValue = price * quantity;
+          for (const { price, quantity, isSell, tradeId, timestamp } of trades) {
+            const usdValue = price * quantity;
 
-          setCurrentPrice(price);
-          monitorCountRef.current += 1;
+            setCurrentPrice(price);
+            monitorCountRef.current += 1;
 
-          if (usdValue >= MIN_USD && usdValue <= MAX_USD) {
-            const tx: WhaleTransaction = {
-              id: `${config.name}-${tradeId}-${timestamp}`,
-              type: isSell ? 'sell' : 'buy',
-              btcAmount: quantity,
-              usdValue,
-              pricePerBtc: price,
-              exchange: config.name,
-              timestamp: new Date(timestamp),
-            };
-            if (tx.type === 'buy') {
-              buyBufferRef.current.push(tx);
-            } else {
-              sellBufferRef.current.push(tx);
+            if (usdValue >= MIN_USD && usdValue <= MAX_USD) {
+              const tx: WhaleTransaction = {
+                id: `${config.name}-${tradeId}-${timestamp}`,
+                type: isSell ? 'sell' : 'buy',
+                btcAmount: quantity,
+                usdValue,
+                pricePerBtc: price,
+                exchange: config.name,
+                timestamp: new Date(timestamp),
+              };
+              if (tx.type === 'buy') {
+                buyBufferRef.current.push(tx);
+              } else {
+                sellBufferRef.current.push(tx);
+              }
             }
           }
         } catch (e) {
