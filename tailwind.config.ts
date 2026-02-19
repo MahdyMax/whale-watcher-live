@@ -59,6 +59,10 @@ export default {
           DEFAULT: "hsl(var(--sell))",
           muted: "hsl(var(--sell-muted))",
         },
+        liquidation: {
+          DEFAULT: "hsl(var(--liquidation))",
+          muted: "hsl(var(--liquidation-muted))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

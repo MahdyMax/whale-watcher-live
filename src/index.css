@@ -29,6 +29,8 @@
     --buy-muted: 142 40% 92%;
     --sell: 0 84% 60%;
     --sell-muted: 0 50% 93%;
+    --liquidation: 32 95% 52%;
+    --liquidation-muted: 32 60% 92%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -65,6 +67,8 @@
     --buy-muted: 142 40% 12%;
     --sell: 0 72% 51%;
     --sell-muted: 0 40% 14%;
+    --liquidation: 32 95% 52%;
+    --liquidation-muted: 32 50% 14%;
 
     --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 95%;
