@@ -7,8 +7,10 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
 
   return (
     <div
-      className={`glass rounded-xl p-4 space-y-2.5 border-l-2 animate-fade-in ${
-        isBuy ? 'border-l-buy' : 'border-l-sell'
+      className={`rounded-xl p-4 space-y-2.5 animate-fade-in ${
+        isBuy
+          ? 'bg-buy-muted border border-buy/20'
+          : 'bg-sell-muted border border-sell/20'
       }`}
     >
       <div className="flex items-center justify-between">
@@ -31,14 +33,12 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
         </span>
       </div>
 
-      <p className="text-xl font-bold font-mono tracking-tight">
-        ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-      </p>
-
-      <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-        <span>{tx.btcAmount.toFixed(4)} BTC</span>
-        <span>
-          @ ${tx.pricePerBtc.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+      <div className="flex items-center justify-between">
+        <p className="text-xl font-bold font-mono tracking-tight">
+          ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+        </p>
+        <span className="text-xs text-muted-foreground font-mono">
+          {tx.btcAmount.toFixed(4)} BTC @ ${tx.pricePerBtc.toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </span>
       </div>
 
@@ -48,7 +48,7 @@ export const TransactionCard = memo(function TransactionCard({ tx }: { tx: Whale
         </span>
         <div
           className={`h-1 w-16 rounded-full overflow-hidden ${
-            isBuy ? 'bg-buy-muted' : 'bg-sell-muted'
+            isBuy ? 'bg-buy/10' : 'bg-sell/10'
           }`}
         >
           <div
