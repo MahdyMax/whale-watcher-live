@@ -97,8 +97,7 @@ const EXCHANGES: ExchangeConfig[] = [
 ];
 
 export function useWhaleTransactions() {
-  const [buys, setBuys] = useState<WhaleTransaction[]>([]);
-  const [sells, setSells] = useState<WhaleTransaction[]>([]);
+  const [transactions, setTransactions] = useState<WhaleTransaction[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -106,33 +105,21 @@ export function useWhaleTransactions() {
 
   const wsRefs = useRef<(WebSocket | null)[]>([]);
   const reconnectRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const buyBufferRef = useRef<WhaleTransaction[]>([]);
-  const sellBufferRef = useRef<WhaleTransaction[]>([]);
+  const bufferRef = useRef<WhaleTransaction[]>([]);
   const flushRef = useRef<ReturnType<typeof setInterval>>();
   const monitorCountRef = useRef(0);
   const connectedCountRef = useRef(0);
 
   // Flush ONE transaction per tick for steady one-by-one appearance
-  // But flush faster when buffer is large (initial catch-up)
   useEffect(() => {
     flushRef.current = setInterval(() => {
-      const buyLen = buyBufferRef.current.length;
-      const sellLen = sellBufferRef.current.length;
-      
-      if (buyLen === 0 && sellLen === 0) {
+      if (bufferRef.current.length === 0) {
         setTotalMonitored(monitorCountRef.current);
         return;
       }
 
-      // Pick from the buffer with more items to keep it balanced
-      if (buyLen >= sellLen && buyLen > 0) {
-        const next = buyBufferRef.current.shift()!;
-        setBuys((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
-      } else if (sellLen > 0) {
-        const next = sellBufferRef.current.shift()!;
-        setSells((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
-      }
-      
+      const next = bufferRef.current.shift()!;
+      setTransactions((prev) => [next, ...prev].slice(0, MAX_TRANSACTIONS));
       setTotalMonitored(monitorCountRef.current);
     }, 50);
 
@@ -168,7 +155,7 @@ export function useWhaleTransactions() {
             monitorCountRef.current += 1;
 
             if (usdValue >= MIN_USD && usdValue <= MAX_USD) {
-              const tx: WhaleTransaction = {
+              bufferRef.current.push({
                 id: `${config.name}-${tradeId}-${timestamp}`,
                 type: isSell ? 'sell' : 'buy',
                 btcAmount: quantity,
@@ -176,12 +163,7 @@ export function useWhaleTransactions() {
                 pricePerBtc: price,
                 exchange: config.name,
                 timestamp: new Date(timestamp),
-              };
-              if (tx.type === 'buy') {
-                buyBufferRef.current.push(tx);
-              } else {
-                sellBufferRef.current.push(tx);
-              }
+              });
             }
           }
         } catch (e) {
@@ -204,7 +186,7 @@ export function useWhaleTransactions() {
   }, []);
 
   useEffect(() => {
-    wsRefs.current = new Array(EXCHANGES.length).fill(null);
+    wsRefs.current = Array.from({ length: EXCHANGES.length }, () => null);
     reconnectRefs.current = [];
     EXCHANGES.forEach((cfg, i) => connectExchange(cfg, i));
 
@@ -214,5 +196,5 @@ export function useWhaleTransactions() {
     };
   }, [connectExchange]);
 
-  return { buys, sells, isConnected, error, currentPrice, totalMonitored };
+  return { transactions, isConnected, error, currentPrice, totalMonitored };
 }

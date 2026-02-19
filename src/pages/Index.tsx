@@ -11,15 +11,13 @@ const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures'];
 
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
-  const { buys, sells, isConnected, error, currentPrice, totalMonitored } =
+  const { transactions, isConnected, error, currentPrice, totalMonitored } =
     useWhaleTransactions();
 
   const allTransactions = useMemo(() => {
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
-    return [...buys, ...sells]
-      .filter((tx) => exchanges.includes(tx.exchange))
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [buys, sells, tab]);
+    return transactions.filter((tx) => exchanges.includes(tx.exchange));
+  }, [transactions, tab]);
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
