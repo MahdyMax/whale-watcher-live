@@ -136,7 +136,7 @@ const Index = () => {
           </div>
         ) : (
           <div className="overflow-y-auto h-full scrollbar-thin">
-            {tab === 'liquidations' && <LiquidationDashboard liquidations={liquidations} />}
+            {tab === 'liquidations' && <LiquidationDashboard />}
             <div className="space-y-1 p-3 sm:p-4">
             {allTransactions.map((tx) => (
               <TransactionCard
