@@ -100,13 +100,20 @@ const Index = () => {
         ))}
       </div>
 
-      <main className="flex-1 overflow-hidden p-3 sm:p-4">
+      <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
-          <div className="max-w-2xl mx-auto overflow-y-auto h-full scrollbar-thin space-y-0">
+          <div className="flex flex-col h-full">
+            {/* Top: Whale Score + Net Flow + Exchange Imbalance */}
             <WhaleScoreCard score={whaleScore} />
             <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
-            <CvdChart data={cvdHistory} />
             <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+
+            {/* Middle: CVD fills remaining space */}
+            <div className="flex-1 min-h-0">
+              <CvdChart data={cvdHistory} fill />
+            </div>
+
+            {/* Bottom: Speed + Volume */}
             <SpeedMeter stats={speedStats} />
             <VolumeBar stats={volumeStats} />
           </div>
@@ -127,7 +134,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-1 overflow-y-auto h-full scrollbar-thin">
+          <div className="space-y-1 overflow-y-auto h-full scrollbar-thin p-3 sm:p-4">
             {allTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
