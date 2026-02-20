@@ -104,9 +104,9 @@ const Index = () => {
         {tab === 'analytics' ? (
           <div className="flex flex-col h-full">
             {/* Top: Whale Score + Net Flow + Exchange Imbalance */}
+            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
             <WhaleScoreCard score={whaleScore} />
             <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
-            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
 
             {/* Middle: CVD fills remaining space */}
             <div className="flex-1 min-h-0">
