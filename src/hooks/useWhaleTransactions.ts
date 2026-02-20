@@ -24,6 +24,30 @@ export interface VolumeStats {
   futuresNet5m: number;
 }
 
+export interface CvdPoint {
+  time: string; // HH:MM:SS
+  cvd: number;
+}
+
+export interface ExchangeImbalance {
+  exchange: string;
+  buyVol: number;
+  sellVol: number;
+  net: number;
+  label: 'Heavy Buying' | 'Heavy Selling' | 'Neutral';
+}
+
+export interface SpeedStats {
+  tradesPerSec: number;
+  volumePerSec: number; // USD
+  intensity: 'low' | 'medium' | 'high';
+}
+
+export interface WhaleScore {
+  score: number; // 0-100
+  sentiment: 'Bullish' | 'Bearish' | 'Neutral';
+}
+
 const DEFAULT_MIN_USD = 50_000;
 const AGGREGATION_WINDOW = 500; // ms - burst aggregation window
 const VOLUME_WINDOW_1M = 60_000;
@@ -147,6 +171,11 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [volumeStats, setVolumeStats] = useState<VolumeStats>({
     buy1m: 0, sell1m: 0, buy5m: 0, sell5m: 0, netDelta1m: 0, netDelta5m: 0, spotNet5m: 0, futuresNet5m: 0,
   });
+  const [cvdHistory, setCvdHistory] = useState<CvdPoint[]>([]);
+  const [exchangeImbalances, setExchangeImbalances] = useState<ExchangeImbalance[]>([]);
+  const [speedStats, setSpeedStats] = useState<SpeedStats>({ tradesPerSec: 0, volumePerSec: 0, intensity: 'low' });
+  const [whaleScore, setWhaleScore] = useState<WhaleScore>({ score: 50, sentiment: 'Neutral' });
+  const cvdAccumRef = useRef(0);
 
   const wsRefs = useRef<(WebSocket | null)[]>([]);
   const liqWsRefs = useRef<(WebSocket | null)[]>([]);
@@ -256,6 +285,59 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         netDelta5m: buy5m - sell5m,
         spotNet5m: spotBuy5m - spotSell5m,
         futuresNet5m: futBuy5m - futSell5m,
+      });
+
+      // --- CVD ---
+      const recentTrades = trades.filter(t => now - t.timestamp < 1000);
+      for (const t of recentTrades) {
+        cvdAccumRef.current += t.isSell ? -t.usdValue : t.usdValue;
+      }
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
+      setCvdHistory(prev => [...prev.slice(-59), { time: timeStr, cvd: cvdAccumRef.current }]);
+
+      // --- Exchange Imbalance (1m window) ---
+      const exchMap = new Map<string, { buy: number; sell: number }>();
+      for (const t of trades) {
+        if (now - t.timestamp > VOLUME_WINDOW_1M) continue;
+        const base = t.exchange.replace(' Futures', '');
+        const entry = exchMap.get(base) || { buy: 0, sell: 0 };
+        if (t.isSell) entry.sell += t.usdValue; else entry.buy += t.usdValue;
+        exchMap.set(base, entry);
+      }
+      const imbalances: ExchangeImbalance[] = [];
+      for (const [exchange, { buy: b, sell: s }] of exchMap) {
+        const net = b - s;
+        const total = b + s;
+        const ratio = total > 0 ? Math.abs(net) / total : 0;
+        imbalances.push({
+          exchange, buyVol: b, sellVol: s, net,
+          label: ratio < 0.15 ? 'Neutral' : net > 0 ? 'Heavy Buying' : 'Heavy Selling',
+        });
+      }
+      setExchangeImbalances(imbalances);
+
+      // --- Speed Meter (last 3 seconds avg) ---
+      const recentWindow = trades.filter(t => now - t.timestamp < 3000);
+      const tps = recentWindow.length / 3;
+      const vps = recentWindow.reduce((s, t) => s + t.usdValue, 0) / 3;
+      setSpeedStats({
+        tradesPerSec: Math.round(tps),
+        volumePerSec: vps,
+        intensity: tps > 50 ? 'high' : tps > 15 ? 'medium' : 'low',
+      });
+
+      // --- Whale Score ---
+      const avgSize5m = (buy5m + sell5m) / Math.max(trades.length, 1);
+      const sizeScore = Math.min(avgSize5m / 5000, 1) * 25; // bigger avg = higher
+      const imbalanceScore = Math.min(Math.abs(buy5m - sell5m) / Math.max(buy5m + sell5m, 1) * 100, 25);
+      const liqBonus = Math.min(recentWindow.filter(t => t.isSell).length * 0.5, 25); // proxy
+      const burstScore = Math.min(tps / 50 * 25, 25);
+      const raw = sizeScore + imbalanceScore + liqBonus + burstScore;
+      const score = Math.round(Math.min(Math.max(raw, 0), 100));
+      const dir = buy5m - sell5m;
+      setWhaleScore({
+        score,
+        sentiment: Math.abs(dir) / Math.max(buy5m + sell5m, 1) < 0.05 ? 'Neutral' : dir > 0 ? 'Bullish' : 'Bearish',
       });
     }, 1000);
 
@@ -379,5 +461,5 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
     };
   }, [connectExchange, connectLiquidation]);
 
-  return { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats };
+  return { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore };
 }
