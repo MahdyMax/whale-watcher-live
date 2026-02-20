@@ -5,7 +5,7 @@ interface ThresholdSliderProps {
   onChange: (value: number) => void;
 }
 
-const STEPS = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+const STEPS = [1, 10, 50, 100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000, 10000000];
 
 function formatThreshold(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(0)}M`;
