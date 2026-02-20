@@ -144,6 +144,10 @@ const Index = () => {
                     ? tx.type === 'buy'
                       ? 'long'
                       : 'short'
+                    : tab === 'liquidations'
+                    ? tx.direction === 'long'
+                      ? 'LONG LIQ'
+                      : 'SHORT LIQ'
                     : undefined
                 }
               />

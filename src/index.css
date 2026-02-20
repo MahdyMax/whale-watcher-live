@@ -31,6 +31,8 @@
     --sell-muted: 0 50% 93%;
     --liquidation: 32 95% 52%;
     --liquidation-muted: 32 60% 92%;
+    --mega: 270 70% 60%;
+    --mega-muted: 270 50% 93%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -69,6 +71,8 @@
     --sell-muted: 0 40% 14%;
     --liquidation: 32 95% 52%;
     --liquidation-muted: 32 50% 14%;
+    --mega: 270 70% 65%;
+    --mega-muted: 270 40% 15%;
 
     --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 95%;
