@@ -3,6 +3,7 @@ import type { CvdPoint } from '@/hooks/useWhaleTransactions';
 
 interface CvdChartProps {
   data: CvdPoint[];
+  fill?: boolean;
 }
 
 function formatUsd(value: number): string {
@@ -11,12 +12,12 @@ function formatUsd(value: number): string {
   return `${value.toFixed(0)}`;
 }
 
-export function CvdChart({ data }: CvdChartProps) {
+export function CvdChart({ data, fill = false }: CvdChartProps) {
   const latest = data[data.length - 1]?.cvd ?? 0;
   const positive = latest >= 0;
 
   return (
-    <div className="px-4 py-2 border-b border-border">
+    <div className={`px-4 py-2 border-b border-border flex flex-col ${fill ? 'h-full' : ''}`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
           CVD (Cumulative Volume Delta)
@@ -25,7 +26,7 @@ export function CvdChart({ data }: CvdChartProps) {
           {positive ? '+' : ''}{formatUsd(latest)}
         </span>
       </div>
-      <div className="h-12">
+      <div className={fill ? 'flex-1 min-h-0' : 'h-12'}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
             <defs>
