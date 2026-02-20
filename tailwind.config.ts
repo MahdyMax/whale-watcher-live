@@ -63,6 +63,10 @@ export default {
           DEFAULT: "hsl(var(--liquidation))",
           muted: "hsl(var(--liquidation-muted))",
         },
+        mega: {
+          DEFAULT: "hsl(var(--mega))",
+          muted: "hsl(var(--mega-muted))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

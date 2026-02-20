@@ -11,10 +11,24 @@ interface TransactionCardProps {
 export const TransactionCard = memo(function TransactionCard({ tx, labelOverride }: TransactionCardProps) {
   const isBuy = tx.type === 'buy';
   const isLiq = tx.type === 'liquidation';
-  const label = labelOverride ?? (isLiq ? 'LIQUIDATED' : tx.type);
+  const isMega = isLiq && (tx.isMega || tx.usdValue >= 2_000_000);
+  const label = labelOverride ?? (isLiq ? (tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ') : tx.type);
 
-  const colorClass = isLiq ? 'text-liquidation' : isBuy ? 'text-buy' : 'text-sell';
-  const bgClass = isLiq ? 'bg-liquidation-muted border-liquidation/15' : isBuy ? 'bg-buy-muted border-buy/15' : 'bg-sell-muted border-sell/15';
+  const colorClass = isMega
+    ? 'text-mega'
+    : isLiq
+    ? 'text-liquidation'
+    : isBuy
+    ? 'text-buy'
+    : 'text-sell';
+
+  const bgClass = isMega
+    ? 'bg-mega-muted border-mega/20'
+    : isLiq
+    ? 'bg-liquidation-muted border-liquidation/15'
+    : isBuy
+    ? 'bg-buy-muted border-buy/15'
+    : 'bg-sell-muted border-sell/15';
 
   return (
     <div

@@ -1,16 +1,18 @@
-// BTC Whale Tracker - Multi-exchange real-time WebSocket hook v3
-// Features: Burst aggregation, configurable threshold, volume tracking, liquidation feed
+// BTC Whale Tracker - Multi-exchange real-time WebSocket hook v4
+// Features: Burst aggregation (trades + liquidations), configurable threshold, volume tracking
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface WhaleEvent {
   id: string;
   type: 'buy' | 'sell' | 'liquidation';
+  direction?: 'long' | 'short'; // for liquidations
   btcAmount: number;
   usdValue: number;
   pricePerBtc: number;
   exchange: string;
   timestamp: Date;
-  tradeCount: number; // how many raw trades were aggregated
+  tradeCount: number;
+  isMega?: boolean; // > $2M liquidation
 }
 
 export interface VolumeStats {
@@ -25,7 +27,7 @@ export interface VolumeStats {
 }
 
 export interface CvdPoint {
-  time: string; // HH:MM:SS
+  time: string;
   cvd: number;
 }
 
@@ -39,26 +41,38 @@ export interface ExchangeImbalance {
 
 export interface SpeedStats {
   tradesPerSec: number;
-  volumePerSec: number; // USD
+  volumePerSec: number;
   intensity: 'low' | 'medium' | 'high';
 }
 
 export interface WhaleScore {
-  score: number; // 0-100
+  score: number;
   sentiment: 'Bullish' | 'Bearish' | 'Neutral';
 }
 
 const DEFAULT_MIN_USD = 50_000;
-const AGGREGATION_WINDOW = 500; // ms - burst aggregation window
+const TRADE_AGGREGATION_WINDOW = 500; // ms
+const LIQ_AGGREGATION_WINDOW = 200; // ms - tighter for liquidations (Phase 3)
 const VOLUME_WINDOW_1M = 60_000;
 const VOLUME_WINDOW_5M = 300_000;
+const MEGA_THRESHOLD = 2_000_000; // $2M
+const MAX_BUFFER = 200;
 
-// --- Raw trade for internal tracking ---
+// --- Raw types ---
 interface RawTrade {
   price: number;
   quantity: number;
   usdValue: number;
   isSell: boolean;
+  exchange: string;
+  timestamp: number;
+}
+
+interface RawLiquidation {
+  price: number;
+  quantity: number;
+  usdValue: number;
+  side: 'long' | 'short';
   exchange: string;
   timestamp: number;
 }
@@ -75,7 +89,7 @@ interface LiquidationConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseLiquidation: (data: any) => { price: number; quantity: number; side: 'long' | 'short'; timestamp: number } | null;
+  parseLiquidation: (data: any) => { price: number; usdValue: number; quantity: number; side: 'long' | 'short'; timestamp: number } | null;
 }
 
 const EXCHANGES: ExchangeConfig[] = [
@@ -193,23 +207,30 @@ const EXCHANGES: ExchangeConfig[] = [
   },
 ];
 
+// OKX BTC-USDT-SWAP contract multiplier: 1 contract = 0.01 BTC
+const OKX_BTC_CT_VAL = 0.01;
+
 const LIQUIDATION_FEEDS: LiquidationConfig[] = [
   {
-    name: 'Binance Futures',
+    name: 'Binance',
     url: 'wss://fstream.binance.com/ws/btcusdt@forceOrder',
     parseLiquidation: (data) => {
       const o = data?.o;
       if (!o) return null;
+      const price = parseFloat(o.ap || o.p); // averagePrice preferred
+      const quantity = parseFloat(o.q);
+      if (isNaN(price) || isNaN(quantity)) return null;
       return {
-        price: parseFloat(o.p),
-        quantity: parseFloat(o.q),
-        side: o.S === 'SELL' ? 'long' : 'short', // liquidated side is opposite
+        price,
+        quantity,
+        usdValue: quantity * price,
+        side: o.S === 'SELL' ? 'long' as const : 'short' as const,
         timestamp: o.T,
       };
     },
   },
   {
-    name: 'Bybit Futures',
+    name: 'Bybit',
     url: 'wss://stream.bybit.com/v5/public/linear',
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: ['liquidation.BTCUSDT'] }));
@@ -217,21 +238,26 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
     parseLiquidation: (raw) => {
       if (raw.topic !== 'liquidation.BTCUSDT' || !raw.data) return null;
       const d = raw.data;
+      const price = parseFloat(d.price);
+      const size = parseFloat(d.size);
+      if (isNaN(price) || isNaN(size)) return null;
+      // Bybit linear BTCUSDT: size is in base coin (BTC)
       return {
-        price: parseFloat(d.price),
-        quantity: parseFloat(d.size),
-        side: d.side === 'Sell' ? 'long' : 'short',
+        price,
+        quantity: size,
+        usdValue: size * price,
+        side: d.side === 'Sell' ? 'long' as const : 'short' as const,
         timestamp: d.updatedTime,
       };
     },
   },
   {
-    name: 'OKX Futures',
+    name: 'OKX',
     url: 'wss://ws.okx.com:8443/ws/v5/public',
     onOpen: (ws) => {
       ws.send(JSON.stringify({
         op: 'subscribe',
-        args: [{ channel: 'liquidation-orders', instType: 'SWAP' }],
+        args: [{ channel: 'liquidation-orders', instType: 'SWAP', instId: 'BTC-USDT-SWAP' }],
       }));
     },
     parseLiquidation: (raw) => {
@@ -241,18 +267,26 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       const details = d.details?.[0];
       if (!details) return null;
       const price = parseFloat(details.bkPx);
-      const quantity = parseFloat(details.sz);
+      const sz = parseFloat(details.sz);
       const timestamp = parseInt(details.ts || d.ts);
-      if (isNaN(price) || isNaN(quantity) || isNaN(timestamp)) return null;
+      if (isNaN(price) || isNaN(sz) || isNaN(timestamp)) return null;
+      // OKX: sz = number of contracts, each contract = 0.01 BTC
+      const quantity = sz * OKX_BTC_CT_VAL;
       return {
         price,
         quantity,
-        side: details.side === 'sell' ? 'long' : 'short',
+        usdValue: quantity * price,
+        side: details.side === 'sell' ? 'long' as const : 'short' as const,
         timestamp,
       };
     },
   },
 ];
+
+// Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+function getBackoff(attempt: number): number {
+  return Math.min(1000 * Math.pow(2, attempt), 30_000);
+}
 
 export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [events, setEvents] = useState<WhaleEvent[]>([]);
@@ -269,34 +303,33 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [speedStats, setSpeedStats] = useState<SpeedStats>({ tradesPerSec: 0, volumePerSec: 0, intensity: 'low' });
   const [whaleScore, setWhaleScore] = useState<WhaleScore>({ score: 50, sentiment: 'Neutral' });
   const cvdAccumRef = useRef(0);
-  const cvdLastTsRef = useRef(0); // track last processed trade timestamp to avoid double-counting
+  const cvdLastTsRef = useRef(0);
 
   const wsRefs = useRef<(WebSocket | null)[]>([]);
   const liqWsRefs = useRef<(WebSocket | null)[]>([]);
   const reconnectRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const reconnectAttemptsRef = useRef<number[]>([]); // for exponential backoff
   const tradeBufferRef = useRef<RawTrade[]>([]);
-  const liqBufferRef = useRef<WhaleEvent[]>([]);
+  const liqRawBufferRef = useRef<RawLiquidation[]>([]); // raw liquidations for aggregation
   const flushRef = useRef<ReturnType<typeof setInterval>>();
+  const liqFlushRef = useRef<ReturnType<typeof setInterval>>();
   const volumeRef = useRef<ReturnType<typeof setInterval>>();
   const monitorCountRef = useRef(0);
   const connectedCountRef = useRef(0);
   const minUsdRef = useRef(minUsd);
-  // Rolling volume window - store all trades for volume calc
   const volumeTradesRef = useRef<{ timestamp: number; usdValue: number; isSell: boolean; exchange: string }[]>([]);
 
-  // Keep minUsd ref in sync
   useEffect(() => {
     minUsdRef.current = minUsd;
   }, [minUsd]);
 
-  // Burst aggregation: group buffered trades by direction+exchange, emit whale events
+  // --- Trade burst aggregation (500ms) ---
   useEffect(() => {
     flushRef.current = setInterval(() => {
       const buffer = tradeBufferRef.current;
       tradeBufferRef.current = [];
 
       if (buffer.length > 0) {
-        // Group by direction + exchange
         const groups = new Map<string, RawTrade[]>();
         for (const t of buffer) {
           const key = `${t.isSell ? 'sell' : 'buy'}|${t.exchange}`;
@@ -327,22 +360,66 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         }
 
         if (newEvents.length > 0) {
-          setEvents((prev) => [...newEvents, ...prev].slice(0, 100));
+          setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_BUFFER));
         }
       }
 
-      // Flush liquidations
-      if (liqBufferRef.current.length > 0) {
-        const newLiqs = liqBufferRef.current;
-        liqBufferRef.current = [];
-        setLiquidations((prev) => [...newLiqs, ...prev].slice(0, 100));
-      }
-
       setTotalMonitored(monitorCountRef.current);
-    }, AGGREGATION_WINDOW);
+    }, TRADE_AGGREGATION_WINDOW);
 
     return () => {
       if (flushRef.current) clearInterval(flushRef.current);
+    };
+  }, []);
+
+  // --- Liquidation burst aggregation (200ms) ---
+  // Groups by exchange + direction within 200ms window, merges into single event
+  useEffect(() => {
+    liqFlushRef.current = setInterval(() => {
+      const buffer = liqRawBufferRef.current;
+      liqRawBufferRef.current = [];
+
+      if (buffer.length === 0) return;
+
+      // Group by exchange + direction
+      const groups = new Map<string, RawLiquidation[]>();
+      for (const l of buffer) {
+        const key = `${l.exchange}|${l.side}`;
+        const arr = groups.get(key) || [];
+        arr.push(l);
+        groups.set(key, arr);
+      }
+
+      const newLiqs: WhaleEvent[] = [];
+      for (const [key, liqs] of groups) {
+        const totalUsd = liqs.reduce((s, l) => s + l.usdValue, 0);
+        const totalBtc = liqs.reduce((s, l) => s + l.quantity, 0);
+        const avgPrice = totalUsd / totalBtc;
+        const [exchange, side] = key.split('|');
+
+        if (totalUsd < minUsdRef.current) continue;
+
+        newLiqs.push({
+          id: `liq-${exchange}-${side}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'liquidation',
+          direction: side as 'long' | 'short',
+          btcAmount: totalBtc,
+          usdValue: totalUsd,
+          pricePerBtc: avgPrice,
+          exchange,
+          timestamp: new Date(liqs[liqs.length - 1].timestamp),
+          tradeCount: liqs.length,
+          isMega: totalUsd >= MEGA_THRESHOLD,
+        });
+      }
+
+      if (newLiqs.length > 0) {
+        setLiquidations((prev) => [...newLiqs, ...prev].slice(0, MAX_BUFFER));
+      }
+    }, LIQ_AGGREGATION_WINDOW);
+
+    return () => {
+      if (liqFlushRef.current) clearInterval(liqFlushRef.current);
     };
   }, []);
 
@@ -350,7 +427,6 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   useEffect(() => {
     volumeRef.current = setInterval(() => {
       const now = Date.now();
-      // Prune old trades
       volumeTradesRef.current = volumeTradesRef.current.filter(
         (t) => now - t.timestamp < VOLUME_WINDOW_5M
       );
@@ -381,7 +457,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         futuresNet5m: futBuy5m - futSell5m,
       });
 
-      // --- CVD (only count trades newer than last cursor) ---
+      // CVD
       const cvdCursor = cvdLastTsRef.current;
       let maxTs = cvdCursor;
       for (const t of trades) {
@@ -394,7 +470,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-59), { time: timeStr, cvd: cvdAccumRef.current }]);
 
-      // --- Exchange Imbalance (1m window) ---
+      // Exchange Imbalance (1m)
       const exchMap = new Map<string, { buy: number; sell: number }>();
       for (const t of trades) {
         if (now - t.timestamp > VOLUME_WINDOW_1M) continue;
@@ -415,7 +491,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       }
       setExchangeImbalances(imbalances);
 
-      // --- Speed Meter (last 3 seconds avg) ---
+      // Speed Meter (3s avg)
       const recentWindow = trades.filter(t => now - t.timestamp < 3000);
       const tps = recentWindow.length / 3;
       const vps = recentWindow.reduce((s, t) => s + t.usdValue, 0) / 3;
@@ -425,11 +501,11 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         intensity: tps > 50 ? 'high' : tps > 15 ? 'medium' : 'low',
       });
 
-      // --- Whale Score ---
+      // Whale Score
       const avgSize5m = (buy5m + sell5m) / Math.max(trades.length, 1);
-      const sizeScore = Math.min(avgSize5m / 5000, 1) * 25; // bigger avg = higher
+      const sizeScore = Math.min(avgSize5m / 5000, 1) * 25;
       const imbalanceScore = Math.min(Math.abs(buy5m - sell5m) / Math.max(buy5m + sell5m, 1) * 100, 25);
-      const liqBonus = Math.min(recentWindow.filter(t => t.isSell).length * 0.5, 25); // proxy
+      const liqBonus = Math.min(recentWindow.filter(t => t.isSell).length * 0.5, 25);
       const burstScore = Math.min(tps / 50 * 25, 25);
       const raw = sizeScore + imbalanceScore + liqBonus + burstScore;
       const score = Math.round(Math.min(Math.max(raw, 0), 100));
@@ -454,6 +530,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       ws.onopen = () => {
         connectedCountRef.current += 1;
+        reconnectAttemptsRef.current[index] = 0; // reset backoff
         setIsConnected(true);
         setError(null);
         config.onOpen?.(ws);
@@ -471,10 +548,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           setCurrentPrice(price);
           monitorCountRef.current += 1;
 
-          // Track all trades for volume
           volumeTradesRef.current.push({ timestamp, usdValue, isSell, exchange: config.name });
 
-          // Buffer for burst aggregation (all trades, threshold applied on flush)
           tradeBufferRef.current.push({
             price, quantity, usdValue, isSell,
             exchange: config.name, timestamp,
@@ -489,10 +564,20 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       ws.onclose = () => {
         connectedCountRef.current = Math.max(0, connectedCountRef.current - 1);
         if (connectedCountRef.current === 0) setIsConnected(false);
-        reconnectRefs.current[index] = setTimeout(() => connectExchange(config, index), 3000);
+        const attempt = (reconnectAttemptsRef.current[index] || 0);
+        reconnectAttemptsRef.current[index] = attempt + 1;
+        reconnectRefs.current[index] = setTimeout(
+          () => connectExchange(config, index),
+          getBackoff(attempt)
+        );
       };
     } catch {
-      reconnectRefs.current[index] = setTimeout(() => connectExchange(config, index), 3000);
+      const attempt = (reconnectAttemptsRef.current[index] || 0);
+      reconnectAttemptsRef.current[index] = attempt + 1;
+      reconnectRefs.current[index] = setTimeout(
+        () => connectExchange(config, index),
+        getBackoff(attempt)
+      );
     }
   }, []);
 
@@ -506,6 +591,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       ws.onopen = () => {
         connectedCountRef.current += 1;
+        reconnectAttemptsRef.current[wsIndex] = 0;
         setIsConnected(true);
         config.onOpen?.(ws);
       };
@@ -516,18 +602,14 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           const liq = config.parseLiquidation(raw);
           if (!liq) return;
 
-          const usdValue = liq.price * liq.quantity;
-          if (usdValue < minUsdRef.current) return;
-
-          liqBufferRef.current.push({
-            id: `liq-${config.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            type: 'liquidation',
-            btcAmount: liq.quantity,
-            usdValue,
-            pricePerBtc: liq.price,
+          // Buffer raw liquidation for burst aggregation
+          liqRawBufferRef.current.push({
+            price: liq.price,
+            quantity: liq.quantity,
+            usdValue: liq.usdValue,
+            side: liq.side,
             exchange: config.name,
-            timestamp: new Date(liq.timestamp),
-            tradeCount: 1,
+            timestamp: liq.timestamp,
           });
         } catch (e) {
           console.error(`Liquidation parse error (${config.name}):`, e);
@@ -539,10 +621,20 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       ws.onclose = () => {
         connectedCountRef.current = Math.max(0, connectedCountRef.current - 1);
         if (connectedCountRef.current === 0) setIsConnected(false);
-        reconnectRefs.current[wsIndex] = setTimeout(() => connectLiquidation(config, index), 3000);
+        const attempt = (reconnectAttemptsRef.current[wsIndex] || 0);
+        reconnectAttemptsRef.current[wsIndex] = attempt + 1;
+        reconnectRefs.current[wsIndex] = setTimeout(
+          () => connectLiquidation(config, index),
+          getBackoff(attempt)
+        );
       };
     } catch {
-      reconnectRefs.current[wsIndex] = setTimeout(() => connectLiquidation(config, index), 3000);
+      const attempt = (reconnectAttemptsRef.current[wsIndex] || 0);
+      reconnectAttemptsRef.current[wsIndex] = attempt + 1;
+      reconnectRefs.current[wsIndex] = setTimeout(
+        () => connectLiquidation(config, index),
+        getBackoff(attempt)
+      );
     }
   }, []);
 
@@ -550,6 +642,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
     wsRefs.current = new Array(EXCHANGES.length).fill(null);
     liqWsRefs.current = new Array(LIQUIDATION_FEEDS.length).fill(null);
     reconnectRefs.current = [];
+    reconnectAttemptsRef.current = new Array(EXCHANGES.length + LIQUIDATION_FEEDS.length).fill(0);
     EXCHANGES.forEach((cfg, i) => connectExchange(cfg, i));
     LIQUIDATION_FEEDS.forEach((cfg, i) => connectLiquidation(cfg, i));
 
