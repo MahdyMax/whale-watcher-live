@@ -20,6 +20,8 @@ export interface VolumeStats {
   sell5m: number;
   netDelta1m: number;
   netDelta5m: number;
+  spotNet5m: number;
+  futuresNet5m: number;
 }
 
 const DEFAULT_MIN_USD = 50_000;
@@ -143,7 +145,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [totalMonitored, setTotalMonitored] = useState(0);
   const [volumeStats, setVolumeStats] = useState<VolumeStats>({
-    buy1m: 0, sell1m: 0, buy5m: 0, sell5m: 0, netDelta1m: 0, netDelta5m: 0,
+    buy1m: 0, sell1m: 0, buy5m: 0, sell5m: 0, netDelta1m: 0, netDelta5m: 0, spotNet5m: 0, futuresNet5m: 0,
   });
 
   const wsRefs = useRef<(WebSocket | null)[]>([]);
@@ -157,7 +159,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const connectedCountRef = useRef(0);
   const minUsdRef = useRef(minUsd);
   // Rolling volume window - store all trades for volume calc
-  const volumeTradesRef = useRef<{ timestamp: number; usdValue: number; isSell: boolean }[]>([]);
+  const volumeTradesRef = useRef<{ timestamp: number; usdValue: number; isSell: boolean; exchange: string }[]>([]);
 
   // Keep minUsd ref in sync
   useEffect(() => {
@@ -232,15 +234,19 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       const trades = volumeTradesRef.current;
       let buy1m = 0, sell1m = 0, buy5m = 0, sell5m = 0;
+      let spotBuy5m = 0, spotSell5m = 0, futBuy5m = 0, futSell5m = 0;
 
       for (const t of trades) {
         const age = now - t.timestamp;
+        const isFutures = t.exchange.includes('Futures');
         if (t.isSell) {
           sell5m += t.usdValue;
           if (age < VOLUME_WINDOW_1M) sell1m += t.usdValue;
+          if (isFutures) futSell5m += t.usdValue; else spotSell5m += t.usdValue;
         } else {
           buy5m += t.usdValue;
           if (age < VOLUME_WINDOW_1M) buy1m += t.usdValue;
+          if (isFutures) futBuy5m += t.usdValue; else spotBuy5m += t.usdValue;
         }
       }
 
@@ -248,6 +254,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         buy1m, sell1m, buy5m, sell5m,
         netDelta1m: buy1m - sell1m,
         netDelta5m: buy5m - sell5m,
+        spotNet5m: spotBuy5m - spotSell5m,
+        futuresNet5m: futBuy5m - futSell5m,
       });
     }, 1000);
 
@@ -283,7 +291,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           monitorCountRef.current += 1;
 
           // Track all trades for volume
-          volumeTradesRef.current.push({ timestamp, usdValue, isSell });
+          volumeTradesRef.current.push({ timestamp, usdValue, isSell, exchange: config.name });
 
           // Buffer for burst aggregation (all trades, threshold applied on flush)
           tradeBufferRef.current.push({
