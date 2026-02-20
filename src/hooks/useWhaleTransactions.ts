@@ -207,8 +207,25 @@ const EXCHANGES: ExchangeConfig[] = [
   },
 ];
 
-// OKX BTC-USDT-SWAP contract multiplier: 1 contract = 0.01 BTC
-const OKX_BTC_CT_VAL = 0.01;
+// OKX contract multiplier — fetched dynamically, fallback to 0.01 BTC
+let okxCtVal = 0.01;
+let okxCtValCcy: 'BTC' | 'USDT' = 'BTC';
+
+// Fetch OKX contract spec once on load
+(async () => {
+  try {
+    const res = await fetch('https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=BTC-USDT-SWAP');
+    const json = await res.json();
+    const inst = json?.data?.[0];
+    if (inst) {
+      okxCtVal = parseFloat(inst.ctVal) || 0.01;
+      okxCtValCcy = inst.ctValCcy === 'USDT' ? 'USDT' : 'BTC';
+      console.log(`[OKX] Contract size: ${okxCtVal} ${okxCtValCcy}`);
+    }
+  } catch (e) {
+    console.warn('[OKX] Failed to fetch contract info, using fallback 0.01 BTC', e);
+  }
+})();
 
 const LIQUIDATION_FEEDS: LiquidationConfig[] = [
   {
@@ -217,15 +234,17 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
     parseLiquidation: (data) => {
       const o = data?.o;
       if (!o) return null;
-      const price = parseFloat(o.ap || o.p); // averagePrice preferred
+      const price = parseFloat(o.ap || o.p);
       const quantity = parseFloat(o.q);
       if (isNaN(price) || isNaN(quantity)) return null;
+      const usdValue = quantity * price;
+      if (!isFinite(usdValue) || usdValue <= 0) return null;
       return {
         price,
         quantity,
-        usdValue: quantity * price,
+        usdValue,
         side: o.S === 'SELL' ? 'long' as const : 'short' as const,
-        timestamp: o.T,
+        timestamp: Number(o.T),
       };
     },
   },
@@ -241,13 +260,16 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       const price = parseFloat(d.price);
       const size = parseFloat(d.size);
       if (isNaN(price) || isNaN(size)) return null;
-      // Bybit linear BTCUSDT: size is in base coin (BTC)
+      // Bybit USDT linear: size is already in USD (1 contract = 1 USD)
+      const usdValue = size;
+      const quantity = price > 0 ? usdValue / price : 0; // derive BTC amount
+      if (!isFinite(usdValue) || usdValue <= 0) return null;
       return {
         price,
-        quantity: size,
-        usdValue: size * price,
+        quantity,
+        usdValue,
         side: d.side === 'Sell' ? 'long' as const : 'short' as const,
-        timestamp: d.updatedTime,
+        timestamp: Number(d.updatedTime),
       };
     },
   },
@@ -268,14 +290,23 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       if (!details) return null;
       const price = parseFloat(details.bkPx);
       const sz = parseFloat(details.sz);
-      const timestamp = parseInt(details.ts || d.ts);
+      const timestamp = Number(details.ts || d.ts);
       if (isNaN(price) || isNaN(sz) || isNaN(timestamp)) return null;
-      // OKX: sz = number of contracts, each contract = 0.01 BTC
-      const quantity = sz * OKX_BTC_CT_VAL;
+      // Dynamic contract multiplier
+      let usdValue: number;
+      let quantity: number;
+      if (okxCtValCcy === 'BTC') {
+        quantity = sz * okxCtVal;
+        usdValue = quantity * price;
+      } else {
+        usdValue = sz * okxCtVal;
+        quantity = price > 0 ? usdValue / price : 0;
+      }
+      if (!isFinite(usdValue) || usdValue <= 0) return null;
       return {
         price,
         quantity,
-        usdValue: quantity * price,
+        usdValue,
         side: details.side === 'sell' ? 'long' as const : 'short' as const,
         timestamp,
       };
