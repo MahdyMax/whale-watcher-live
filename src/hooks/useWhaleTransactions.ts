@@ -1,6 +1,7 @@
 // BTC Whale Tracker - Multi-exchange real-time WebSocket hook v4
-// Features: Burst aggregation (trades + liquidations), configurable threshold, volume tracking
+// Features: Burst aggregation (trades + liquidations), configurable threshold, volume tracking, DB persistence
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface WhaleEvent {
   id: string;
@@ -449,6 +450,20 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       if (newLiqs.length > 0) {
         console.log(`[LIQ FLUSH] ${newLiqs.length} events:`, newLiqs.map(l => `${l.exchange} ${l.direction} $${Math.round(l.usdValue)}`).join(', '));
         setLiquidations((prev) => [...newLiqs, ...prev].slice(0, MAX_LIQ_BUFFER));
+
+        // Persist to database for historical aggregation
+        const rows = newLiqs.map(l => ({
+          exchange: l.exchange,
+          direction: l.direction || 'long',
+          notional_usd: l.usdValue,
+          price: l.pricePerBtc,
+          quantity: l.btcAmount,
+          trade_count: l.tradeCount,
+          source_timestamp: l.timestamp.toISOString(),
+        }));
+        supabase.from('liquidation_events').insert(rows).then(({ error }) => {
+          if (error) console.error('[DB] Insert error:', error);
+        });
       }
     }, LIQ_AGGREGATION_WINDOW);
 
