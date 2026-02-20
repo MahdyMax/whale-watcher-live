@@ -11,6 +11,7 @@ import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
 import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
+import { LiquidationDashboard } from '@/components/whale/LiquidationDashboard';
 import { Radar, Volume2, VolumeX } from 'lucide-react';
 
 type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
@@ -134,7 +135,9 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="space-y-1 overflow-y-auto h-full scrollbar-thin p-3 sm:p-4">
+          <div className="overflow-y-auto h-full scrollbar-thin">
+            {tab === 'liquidations' && <LiquidationDashboard liquidations={liquidations} />}
+            <div className="space-y-1 p-3 sm:p-4">
             {allTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
@@ -152,6 +155,7 @@ const Index = () => {
                 }
               />
             ))}
+            </div>
           </div>
         )}
       </main>
