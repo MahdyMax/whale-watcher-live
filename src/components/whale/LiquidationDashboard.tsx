@@ -1,23 +1,35 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect, useState } from 'react';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
-import { TrendingDown, TrendingUp, Flame, Trophy, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { TrendingDown, TrendingUp, Flame, Trophy, BarChart3, RefreshCw, Wifi } from 'lucide-react';
 
 interface Props {
-  liquidations: WhaleEvent[];
+  liquidations: WhaleEvent[]; // live WebSocket feed
 }
 
-interface TimeWindowStats {
+interface ApiTimeWindow {
   label: string;
   longUsd: number;
   shortUsd: number;
+  count: number;
 }
 
-interface LargestLiq {
+interface ApiLargest {
   usdValue: number;
   direction: 'long' | 'short';
   exchange: string;
   price: number;
-  timestamp: Date;
+  timestamp: number;
+}
+
+interface ApiResponse {
+  timeBreakdown: ApiTimeWindow[];
+  largest: ApiLargest | null;
+  avgSize: number;
+  totalEvents: number;
+  topExchanges: { name: string; volume: number }[];
+  sources: string[];
+  note: string;
 }
 
 const fmt = (v: number) => {
@@ -27,8 +39,32 @@ const fmt = (v: number) => {
 };
 
 export const LiquidationDashboard = memo(function LiquidationDashboard({ liquidations }: Props) {
-  const stats = useMemo(() => {
-    const now = Date.now();
+  const [apiData, setApiData] = useState<ApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lastFetch, setLastFetch] = useState<Date | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('liquidation-data');
+      if (error) throw error;
+      setApiData(data as ApiResponse);
+      setLastFetch(new Date());
+    } catch (e) {
+      console.error('[Dashboard] Failed to fetch:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 60_000); // refresh every 60s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Merge API data with live WebSocket accumulation for Bybit/OKX
+  const mergedStats = useMemo(() => {
     const windows = [
       { label: '1h', ms: 3_600_000 },
       { label: '4h', ms: 14_400_000 },
@@ -36,19 +72,40 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
       { label: '24h', ms: 86_400_000 },
     ];
 
-    const timeStats: TimeWindowStats[] = windows.map(({ label, ms }) => {
-      let longUsd = 0;
-      let shortUsd = 0;
-      for (const liq of liquidations) {
+    const now = Date.now();
+
+    // Live WebSocket stats (Bybit + OKX only, since Binance comes from API)
+    const wsLiqs = liquidations.filter(
+      (l) => l.exchange === 'Bybit' || l.exchange === 'OKX'
+    );
+
+    const timeStats = windows.map(({ label, ms }) => {
+      // API data (Binance)
+      const apiWindow = apiData?.timeBreakdown.find((t) => t.label === label);
+      let longUsd = apiWindow?.longUsd || 0;
+      let shortUsd = apiWindow?.shortUsd || 0;
+
+      // Add live WebSocket data for non-Binance exchanges
+      for (const liq of wsLiqs) {
         if (now - liq.timestamp.getTime() > ms) continue;
         if (liq.direction === 'long') longUsd += liq.usdValue;
         else shortUsd += liq.usdValue;
       }
+
       return { label, longUsd, shortUsd };
     });
 
-    // Largest single liquidation
-    let largest: LargestLiq | null = null;
+    // Largest: compare API vs live
+    let largest = apiData?.largest
+      ? {
+          usdValue: apiData.largest.usdValue,
+          direction: apiData.largest.direction,
+          exchange: apiData.largest.exchange,
+          price: apiData.largest.price,
+          timestamp: new Date(apiData.largest.timestamp),
+        }
+      : null;
+
     for (const liq of liquidations) {
       if (!largest || liq.usdValue > largest.usdValue) {
         largest = {
@@ -61,13 +118,17 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
       }
     }
 
-    // Average size
-    const avgSize = liquidations.length > 0
-      ? liquidations.reduce((s, l) => s + l.usdValue, 0) / liquidations.length
-      : 0;
+    // Average size (combine)
+    const apiTotal = (apiData?.avgSize || 0) * (apiData?.totalEvents || 0);
+    const wsTotal = liquidations.reduce((s, l) => s + l.usdValue, 0);
+    const totalEvents = (apiData?.totalEvents || 0) + liquidations.length;
+    const avgSize = totalEvents > 0 ? (apiTotal + wsTotal) / totalEvents : 0;
 
-    // Top exchanges
+    // Top exchanges (merge)
     const exchMap = new Map<string, number>();
+    for (const ex of apiData?.topExchanges || []) {
+      exchMap.set(ex.name, ex.volume);
+    }
     for (const liq of liquidations) {
       exchMap.set(liq.exchange, (exchMap.get(liq.exchange) || 0) + liq.usdValue);
     }
@@ -75,18 +136,35 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    return { timeStats, largest, avgSize, topExchanges };
-  }, [liquidations]);
-
-  if (liquidations.length === 0) return null;
+    return { timeStats, largest, avgSize, totalEvents, topExchanges };
+  }, [apiData, liquidations]);
 
   return (
     <div className="p-3 space-y-3 border-b border-border">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">BTC Liquidation Summary</h3>
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Wifi className="h-3 w-3 text-buy" />
+            <span>Live + API</span>
+          </div>
+        </div>
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+          {lastFetch ? lastFetch.toLocaleTimeString('en-US', { hour12: false }) : '...'}
+        </button>
+      </div>
+
       {/* Time window breakdown */}
       <div className="grid grid-cols-4 gap-2">
-        {stats.timeStats.map((tw) => (
+        {mergedStats.timeStats.map((tw) => (
           <div key={tw.label} className="rounded-lg bg-card border border-border p-2 space-y-1">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{tw.label}</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{tw.label} Rekt</p>
             <div className="flex items-center gap-1">
               <TrendingDown className="h-3 w-3 text-buy shrink-0" />
               <span className="text-[11px] font-mono font-bold text-buy">{fmt(tw.longUsd)}</span>
@@ -121,18 +199,18 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
             <Flame className="h-3 w-3 text-liquidation" />
             <span className="text-[10px] font-semibold text-muted-foreground uppercase">Largest</span>
           </div>
-          {stats.largest ? (
+          {mergedStats.largest ? (
             <>
-              <p className="text-sm font-mono font-bold text-foreground">{fmt(stats.largest.usdValue)}</p>
-              <p className={`text-[10px] font-semibold ${stats.largest.direction === 'long' ? 'text-buy' : 'text-sell'}`}>
-                {stats.largest.direction === 'long' ? 'LONG' : 'SHORT'} — {stats.largest.exchange}
+              <p className="text-sm font-mono font-bold text-foreground">{fmt(mergedStats.largest.usdValue)}</p>
+              <p className={`text-[10px] font-semibold ${mergedStats.largest.direction === 'long' ? 'text-buy' : 'text-sell'}`}>
+                {mergedStats.largest.direction === 'long' ? 'LONG' : 'SHORT'} — {mergedStats.largest.exchange}
               </p>
               <p className="text-[10px] text-muted-foreground font-mono">
-                @ ${Math.round(stats.largest.price).toLocaleString()} · {stats.largest.timestamp.toLocaleTimeString('en-US', { hour12: false, timeZone: 'UTC' })} UTC
+                @ ${Math.round(mergedStats.largest.price).toLocaleString()} · {mergedStats.largest.timestamp.toLocaleTimeString('en-US', { hour12: false, timeZone: 'UTC' })} UTC
               </p>
             </>
           ) : (
-            <p className="text-[10px] text-muted-foreground">No data</p>
+            <p className="text-[10px] text-muted-foreground">No data yet</p>
           )}
         </div>
 
@@ -142,8 +220,8 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
             <BarChart3 className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-semibold text-muted-foreground uppercase">Avg Size</span>
           </div>
-          <p className="text-sm font-mono font-bold text-foreground">{fmt(stats.avgSize)}</p>
-          <p className="text-[10px] text-muted-foreground">{liquidations.length} events</p>
+          <p className="text-sm font-mono font-bold text-foreground">{fmt(mergedStats.avgSize)}</p>
+          <p className="text-[10px] text-muted-foreground">{mergedStats.totalEvents.toLocaleString()} events</p>
         </div>
 
         {/* Top exchanges */}
@@ -153,14 +231,14 @@ export const LiquidationDashboard = memo(function LiquidationDashboard({ liquida
             <span className="text-[10px] font-semibold text-muted-foreground uppercase">Top Exchanges</span>
           </div>
           <div className="space-y-0.5">
-            {stats.topExchanges.map(([name, vol]) => (
+            {mergedStats.topExchanges.map(([name, vol]) => (
               <div key={name} className="flex items-center justify-between">
                 <span className="text-[10px] text-foreground font-medium truncate">{name}</span>
                 <span className="text-[10px] font-mono text-muted-foreground">{fmt(vol)}</span>
               </div>
             ))}
-            {stats.topExchanges.length === 0 && (
-              <p className="text-[10px] text-muted-foreground">No data</p>
+            {mergedStats.topExchanges.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">No data yet</p>
             )}
           </div>
         </div>

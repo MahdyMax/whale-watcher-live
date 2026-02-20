@@ -1,0 +1,4 @@
+project_id = "olisxkcydinbeiubjqbp"
+
+[functions.liquidation-data]
+verify_jwt = false
