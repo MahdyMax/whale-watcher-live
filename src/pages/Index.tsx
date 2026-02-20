@@ -101,7 +101,7 @@ const Index = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto space-y-1 overflow-y-auto h-full scrollbar-thin">
+          <div className="max-w-2xl mx-auto space-y-1 overflow-hidden h-full">
             {allTransactions.map((tx) => (
               <TransactionCard
                 key={tx.id}
