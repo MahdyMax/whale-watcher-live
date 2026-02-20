@@ -238,10 +238,15 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       if (raw.arg?.channel !== 'liquidation-orders' || !raw.data?.length) return null;
       const d = raw.data[0];
       if (!d.instId?.startsWith('BTC-')) return null;
+      const details = d.details?.[0];
+      if (!details) return null;
+      const price = parseFloat(details.bkPx);
+      const quantity = parseFloat(details.sz);
+      if (isNaN(price) || isNaN(quantity)) return null;
       return {
-        price: parseFloat(d.bkPx),
-        quantity: parseFloat(d.sz),
-        side: d.side === 'sell' ? 'long' : 'short',
+        price,
+        quantity,
+        side: details.side === 'sell' ? 'long' : 'short',
         timestamp: parseInt(d.ts),
       };
     },
