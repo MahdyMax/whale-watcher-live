@@ -4,6 +4,10 @@ import { TransactionCard } from '@/components/whale/TransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
 import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
 import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
+import { CvdChart } from '@/components/whale/CvdChart';
+import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
+import { SpeedMeter } from '@/components/whale/SpeedMeter';
+import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
 import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
@@ -18,7 +22,7 @@ const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
   const [minUsd, setMinUsd] = useState(50_000);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats } =
+  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore } =
     useWhaleTransactions(minUsd);
 
   // Sound alerts for whale trades
@@ -64,8 +68,20 @@ const Index = () => {
         </div>
       )}
 
+      {/* Smart Whale Score */}
+      <WhaleScoreCard score={whaleScore} />
+
       {/* Net flow indicator */}
       <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
+
+      {/* CVD Chart */}
+      <CvdChart data={cvdHistory} />
+
+      {/* Exchange Imbalance */}
+      <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+
+      {/* Speed Meter */}
+      <SpeedMeter stats={speedStats} />
 
       {/* Volume context */}
       <VolumeBar stats={volumeStats} />
