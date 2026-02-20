@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
+import { ExchangeIcon } from './ExchangeIcon';
 
 interface TransactionCardProps {
   tx: WhaleEvent;
@@ -44,9 +45,7 @@ export const TransactionCard = memo(function TransactionCard({ tx, labelOverride
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
-          {tx.exchange}
-        </span>
+        <ExchangeIcon exchange={tx.exchange} />
         <span className="text-muted-foreground text-[10px]">
           {tx.timestamp.toLocaleTimeString()}
         </span>
