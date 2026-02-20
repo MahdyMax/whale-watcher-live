@@ -13,7 +13,7 @@ import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 import { Radar, Volume2, VolumeX } from 'lucide-react';
 
-type Tab = 'spot' | 'futures' | 'liquidations';
+type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 
 const SPOT_EXCHANGES = ['Binance', 'Bybit'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures'];
@@ -28,7 +28,7 @@ const Index = () => {
   // Sound alerts for whale trades
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
-  const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [] });
+  const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
 
   const allTransactions = useMemo(() => {
     let fresh: WhaleEvent[];
@@ -52,6 +52,7 @@ const Index = () => {
     { key: 'spot', label: 'Spot' },
     { key: 'futures', label: 'Futures' },
     { key: 'liquidations', label: 'Liquidations' },
+    { key: 'analytics', label: 'Analytics' },
   ];
 
   return (
@@ -67,24 +68,6 @@ const Index = () => {
           {error} — Reconnecting...
         </div>
       )}
-
-      {/* Smart Whale Score */}
-      <WhaleScoreCard score={whaleScore} />
-
-      {/* Net flow indicator */}
-      <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
-
-      {/* CVD Chart */}
-      <CvdChart data={cvdHistory} />
-
-      {/* Exchange Imbalance */}
-      <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-
-      {/* Speed Meter */}
-      <SpeedMeter stats={speedStats} />
-
-      {/* Volume context */}
-      <VolumeBar stats={volumeStats} />
 
       {/* Threshold slider + sound toggle */}
       <div className="flex items-center border-b border-border">
@@ -118,7 +101,16 @@ const Index = () => {
       </div>
 
       <main className="flex-1 overflow-hidden p-3 sm:p-4">
-        {allTransactions.length === 0 ? (
+        {tab === 'analytics' ? (
+          <div className="max-w-2xl mx-auto overflow-y-auto h-full scrollbar-thin space-y-0">
+            <WhaleScoreCard score={whaleScore} />
+            <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
+            <CvdChart data={cvdHistory} />
+            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+            <SpeedMeter stats={speedStats} />
+            <VolumeBar stats={volumeStats} />
+          </div>
+        ) : allTransactions.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3 text-muted-foreground">
               <Radar className="h-8 w-8 mx-auto animate-pulse opacity-40" />
