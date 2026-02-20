@@ -125,6 +125,72 @@ const EXCHANGES: ExchangeConfig[] = [
       return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T };
     },
   },
+  {
+    name: 'Coinbase',
+    url: 'wss://advanced-trade-ws.coinbase.com',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        product_ids: ['BTC-USD'],
+        channel: 'market_trades',
+      }));
+    },
+    parseTrade: (raw) => {
+      if (raw.channel !== 'market_trades' || !raw.events?.length) return null;
+      const evt = raw.events[0];
+      if (!evt.trades?.length) return null;
+      const t = evt.trades[0];
+      return {
+        price: parseFloat(t.price),
+        quantity: parseFloat(t.size),
+        isSell: t.side === 'SELL',
+        tradeId: t.trade_id,
+        timestamp: new Date(t.time).getTime(),
+      };
+    },
+  },
+  {
+    name: 'OKX',
+    url: 'wss://ws.okx.com:8443/ws/v5/public',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [{ channel: 'trades', instId: 'BTC-USDT' }],
+      }));
+    },
+    parseTrade: (raw) => {
+      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+      const d = raw.data[0];
+      return {
+        price: parseFloat(d.px),
+        quantity: parseFloat(d.sz),
+        isSell: d.side === 'sell',
+        tradeId: d.tradeId,
+        timestamp: parseInt(d.ts),
+      };
+    },
+  },
+  {
+    name: 'OKX Futures',
+    url: 'wss://ws.okx.com:8443/ws/v5/public',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [{ channel: 'trades', instId: 'BTC-USDT-SWAP' }],
+      }));
+    },
+    parseTrade: (raw) => {
+      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+      const d = raw.data[0];
+      return {
+        price: parseFloat(d.px),
+        quantity: parseFloat(d.sz),
+        isSell: d.side === 'sell',
+        tradeId: d.tradeId,
+        timestamp: parseInt(d.ts),
+      };
+    },
+  },
 ];
 
 const LIQUIDATION_FEEDS: LiquidationConfig[] = [
