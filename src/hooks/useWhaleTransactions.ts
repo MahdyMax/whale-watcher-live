@@ -242,12 +242,13 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       if (!details) return null;
       const price = parseFloat(details.bkPx);
       const quantity = parseFloat(details.sz);
-      if (isNaN(price) || isNaN(quantity)) return null;
+      const timestamp = parseInt(details.ts || d.ts);
+      if (isNaN(price) || isNaN(quantity) || isNaN(timestamp)) return null;
       return {
         price,
         quantity,
         side: details.side === 'sell' ? 'long' : 'short',
-        timestamp: parseInt(d.ts),
+        timestamp,
       };
     },
   },
