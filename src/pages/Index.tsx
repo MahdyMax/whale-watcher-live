@@ -15,8 +15,8 @@ import { Radar, Volume2, VolumeX } from 'lucide-react';
 
 type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 
-const SPOT_EXCHANGES = ['Binance', 'Bybit'];
-const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures'];
+const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
+const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
 
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
