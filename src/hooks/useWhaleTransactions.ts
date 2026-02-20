@@ -225,6 +225,27 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
       };
     },
   },
+  {
+    name: 'OKX Futures',
+    url: 'wss://ws.okx.com:8443/ws/v5/public',
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [{ channel: 'liquidation-orders', instType: 'SWAP' }],
+      }));
+    },
+    parseLiquidation: (raw) => {
+      if (raw.arg?.channel !== 'liquidation-orders' || !raw.data?.length) return null;
+      const d = raw.data[0];
+      if (!d.instId?.startsWith('BTC-')) return null;
+      return {
+        price: parseFloat(d.bkPx),
+        quantity: parseFloat(d.sz),
+        side: d.side === 'sell' ? 'long' : 'short',
+        timestamp: parseInt(d.ts),
+      };
+    },
+  },
 ];
 
 export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
