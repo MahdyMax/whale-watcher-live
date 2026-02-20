@@ -34,7 +34,7 @@ const Index = () => {
     let fresh: WhaleEvent[];
 
     if (tab === 'liquidations') {
-      fresh = liquidations.slice(0, 25);
+      fresh = liquidations.slice(0, 100);
     } else {
       const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
       fresh = events

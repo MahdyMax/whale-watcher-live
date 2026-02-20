@@ -52,11 +52,12 @@ export interface WhaleScore {
 
 const DEFAULT_MIN_USD = 50_000;
 const TRADE_AGGREGATION_WINDOW = 500; // ms
-const LIQ_AGGREGATION_WINDOW = 200; // ms - tighter for liquidations (Phase 3)
+const LIQ_AGGREGATION_WINDOW = 50; // ms - micro-trade capture (was 200ms)
 const VOLUME_WINDOW_1M = 60_000;
 const VOLUME_WINDOW_5M = 300_000;
 const MEGA_THRESHOLD = 2_000_000; // $2M
-const MAX_BUFFER = 200;
+const MAX_TRADE_BUFFER = 200;
+const MAX_LIQ_BUFFER = 1000; // larger buffer for liquidation cascades
 
 // --- Raw types ---
 interface RawTrade {
@@ -391,7 +392,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         }
 
         if (newEvents.length > 0) {
-          setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_BUFFER));
+          setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_TRADE_BUFFER));
         }
       }
 
@@ -428,7 +429,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         const avgPrice = totalUsd / totalBtc;
         const [exchange, side] = key.split('|');
 
-        if (totalUsd < minUsdRef.current) continue;
+        // No USD filter for liquidations — capture all micro trades
+        // Only skip truly invalid values (already filtered in parseLiquidation)
 
         newLiqs.push({
           id: `liq-${exchange}-${side}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -445,7 +447,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       }
 
       if (newLiqs.length > 0) {
-        setLiquidations((prev) => [...newLiqs, ...prev].slice(0, MAX_BUFFER));
+        console.log(`[LIQ FLUSH] ${newLiqs.length} events:`, newLiqs.map(l => `${l.exchange} ${l.direction} $${Math.round(l.usdValue)}`).join(', '));
+        setLiquidations((prev) => [...newLiqs, ...prev].slice(0, MAX_LIQ_BUFFER));
       }
     }, LIQ_AGGREGATION_WINDOW);
 
@@ -632,6 +635,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           const raw = JSON.parse(event.data);
           const liq = config.parseLiquidation(raw);
           if (!liq) return;
+
+          console.log(`[RAW LIQ] ${config.name} ${liq.side} $${Math.round(liq.usdValue)} @ ${Math.round(liq.price)}`);
 
           // Buffer raw liquidation for burst aggregation
           liqRawBufferRef.current.push({
