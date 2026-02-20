@@ -176,6 +176,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [speedStats, setSpeedStats] = useState<SpeedStats>({ tradesPerSec: 0, volumePerSec: 0, intensity: 'low' });
   const [whaleScore, setWhaleScore] = useState<WhaleScore>({ score: 50, sentiment: 'Neutral' });
   const cvdAccumRef = useRef(0);
+  const cvdLastTsRef = useRef(0); // track last processed trade timestamp to avoid double-counting
 
   const wsRefs = useRef<(WebSocket | null)[]>([]);
   const liqWsRefs = useRef<(WebSocket | null)[]>([]);
@@ -287,11 +288,16 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         futuresNet5m: futBuy5m - futSell5m,
       });
 
-      // --- CVD ---
-      const recentTrades = trades.filter(t => now - t.timestamp < 1000);
-      for (const t of recentTrades) {
-        cvdAccumRef.current += t.isSell ? -t.usdValue : t.usdValue;
+      // --- CVD (only count trades newer than last cursor) ---
+      const cvdCursor = cvdLastTsRef.current;
+      let maxTs = cvdCursor;
+      for (const t of trades) {
+        if (t.timestamp > cvdCursor) {
+          cvdAccumRef.current += t.isSell ? -t.usdValue : t.usdValue;
+          if (t.timestamp > maxTs) maxTs = t.timestamp;
+        }
       }
+      cvdLastTsRef.current = maxTs;
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-59), { time: timeStr, cvd: cvdAccumRef.current }]);
 
