@@ -1,39 +1,42 @@
 import { useRef, useEffect } from 'react';
 import type { WhaleEvent } from './useWhaleTransactions';
 
-// Generate a bass tone using Web Audio API
-function playBassTone(volume: number, duration: number, frequency: number) {
+// Play a short bell/chime sound using Web Audio API
+function playBell() {
   try {
     const ctx = new AudioContext();
+    const now = ctx.currentTime;
+
+    // Main bell tone
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, now); // A5
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
 
-    // Sub-bass layer
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    // Harmonic overtone for shimmer
     const osc2 = ctx.createOscillator();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(frequency * 0.5, ctx.currentTime);
+    osc2.frequency.setValueAtTime(1760, now);
 
     const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(volume * 0.6, ctx.currentTime);
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    gain2.gain.setValueAtTime(0.1, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
     osc.connect(gain);
     osc2.connect(gain2);
     gain.connect(ctx.destination);
     gain2.connect(ctx.destination);
 
-    osc.start();
-    osc2.start();
-    osc.stop(ctx.currentTime + duration);
-    osc2.stop(ctx.currentTime + duration);
+    osc.start(now);
+    osc2.start(now);
+    osc.stop(now + 0.4);
+    osc2.stop(now + 0.25);
 
-    setTimeout(() => ctx.close(), (duration + 0.1) * 1000);
+    setTimeout(() => ctx.close(), 500);
   } catch {
     // Audio not available
   }
@@ -56,12 +59,6 @@ export function useWhaleSound(events: WhaleEvent[], enabled: boolean = true) {
     lastSeenRef.current = latest.id;
     cooldownRef.current = now;
 
-    if (latest.usdValue >= 2_000_000) {
-      // Mega whale: deep loud bass
-      playBassTone(0.5, 0.6, 55);
-    } else if (latest.usdValue >= 500_000) {
-      // Whale: softer bass
-      playBassTone(0.25, 0.35, 70);
-    }
+    playBell();
   }, [events, enabled]);
 }
