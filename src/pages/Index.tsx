@@ -2,10 +2,12 @@ import { useState, useMemo, useRef } from 'react';
 import { Header } from '@/components/whale/Header';
 import { TransactionCard } from '@/components/whale/TransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
+import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
 import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
 import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
+import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
-import { Radar } from 'lucide-react';
+import { Radar, Volume2, VolumeX } from 'lucide-react';
 
 type Tab = 'spot' | 'futures' | 'liquidations';
 
@@ -15,8 +17,12 @@ const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures'];
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
   const [minUsd, setMinUsd] = useState(50_000);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats } =
     useWhaleTransactions(minUsd);
+
+  // Sound alerts for whale trades
+  useWhaleSound([...events, ...liquidations], soundEnabled);
 
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [] });
 
@@ -58,11 +64,23 @@ const Index = () => {
         </div>
       )}
 
+      {/* Net flow indicator */}
+      <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
+
       {/* Volume context */}
       <VolumeBar stats={volumeStats} />
 
-      {/* Threshold slider */}
-      <ThresholdSlider value={minUsd} onChange={setMinUsd} />
+      {/* Threshold slider + sound toggle */}
+      <div className="flex items-center border-b border-border">
+        <ThresholdSlider value={minUsd} onChange={setMinUsd} />
+        <button
+          onClick={() => setSoundEnabled((s) => !s)}
+          className="px-3 py-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          title={soundEnabled ? 'Mute alerts' : 'Enable sound alerts'}
+        >
+          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </button>
+      </div>
 
       {/* Tab bar */}
       <div className="flex border-b border-border">
