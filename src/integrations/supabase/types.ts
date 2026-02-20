@@ -14,42 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      liquidation_events: {
-        Row: {
-          created_at: string
-          direction: string
-          exchange: string
-          id: string
-          notional_usd: number
-          price: number
-          quantity: number
-          source_timestamp: string
-          trade_count: number
-        }
-        Insert: {
-          created_at?: string
-          direction: string
-          exchange: string
-          id?: string
-          notional_usd: number
-          price: number
-          quantity: number
-          source_timestamp: string
-          trade_count?: number
-        }
-        Update: {
-          created_at?: string
-          direction?: string
-          exchange?: string
-          id?: string
-          notional_usd?: number
-          price?: number
-          quantity?: number
-          source_timestamp?: string
-          trade_count?: number
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
