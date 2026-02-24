@@ -12,7 +12,7 @@ export function Header({ isConnected, currentPrice, totalMonitored }: HeaderProp
       <div className="flex items-center gap-2.5">
         <Activity className="h-5 w-5 text-buy" />
         <h1 className="text-base sm:text-lg font-semibold tracking-tight">
-          BTC Whale Tracker
+          Trackr
         </h1>
       </div>
 
