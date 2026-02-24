@@ -59,11 +59,19 @@ export const TransactionCard = memo(function TransactionCard({ tx, labelOverride
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
-        {tx.exchange.includes('Futures') && tx.type !== 'liquidation' && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/50 text-accent-foreground">
-            ~10x • ${Math.round(tx.usdValue / 10).toLocaleString()} margin
-          </span>
-        )}
+        {tx.exchange.includes('Futures') && tx.type !== 'liquidation' && (() => {
+          const estLeverage = tx.usdValue >= 1_000_000 ? 50
+            : tx.usdValue >= 500_000 ? 25
+            : tx.usdValue >= 200_000 ? 20
+            : tx.usdValue >= 100_000 ? 10
+            : 5;
+          const estMargin = Math.round(tx.usdValue / estLeverage);
+          return (
+            <span className="text-muted-foreground font-bold uppercase tracking-wider">
+              ~{estLeverage}X • ${estMargin.toLocaleString()} MARGIN
+            </span>
+          );
+        })()}
         <ExchangeIcon exchange={tx.exchange} />
         <span className="text-muted-foreground text-[10px]">
           {tx.timestamp.toLocaleTimeString()}
