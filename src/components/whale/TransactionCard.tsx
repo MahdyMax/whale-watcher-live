@@ -65,10 +65,9 @@ export const TransactionCard = memo(function TransactionCard({ tx, labelOverride
             : tx.usdValue >= 200_000 ? 20
             : tx.usdValue >= 100_000 ? 10
             : 5;
-          const estMargin = Math.round(tx.usdValue / estLeverage);
           return (
             <span className="text-muted-foreground font-bold uppercase tracking-wider">
-              ~{estLeverage}X • ${estMargin.toLocaleString()} MARGIN
+              ~{estLeverage}X
             </span>
           );
         })()}
