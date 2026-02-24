@@ -26,14 +26,6 @@ export function Header({ isConnected, currentPrice, totalMonitored }: HeaderProp
           </div>
         )}
 
-        {totalMonitored > 0 && (
-          <div className="hidden md:flex flex-col items-end">
-            <span className="text-xs text-muted-foreground">Trades scanned</span>
-            <span className="text-sm font-mono font-medium">
-              {totalMonitored.toLocaleString()}
-            </span>
-          </div>
-        )}
 
         <div className="flex items-center gap-2">
           <div
