@@ -32,7 +32,7 @@ export const TransactionCard = memo(function TransactionCard({ tx, labelOverride
 
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in `}
+      className={`flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b`}
     >
       <div className="flex items-center gap-2 min-w-0">
         {isLiq ? (
