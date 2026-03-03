@@ -23,7 +23,7 @@ const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
   const [minUsd, setMinUsd] = useState(50_000);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore } =
+  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
     useWhaleTransactions(minUsd);
 
   // Sound alerts for whale trades
@@ -107,11 +107,11 @@ const Index = () => {
             {/* Top: Whale Score + Net Flow + Exchange Imbalance */}
             <ExchangeImbalanceBar imbalances={exchangeImbalances} />
             <WhaleScoreCard score={whaleScore} />
-            <NetFlowIndicator spotNet={volumeStats.spotNet5m} futuresNet={volumeStats.futuresNet5m} />
+            <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
 
             {/* Middle: CVD fills remaining space */}
             <div className="flex-1 min-h-0">
-              <CvdChart data={cvdHistory} fill />
+              <CvdChart data={cvdHistory} fill onReset={resetCvd} />
             </div>
 
             {/* Bottom: Speed + Volume */}
