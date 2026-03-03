@@ -595,8 +595,10 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const exchMap1m = new Map<string, { buy: number; sell: number }>();
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
       let totalVol5m = 0;
+      const IMBALANCE_EXCHANGES = ['Binance', 'Bybit', 'OKX'];
       for (const t of trades) {
         if (t.exchange.includes('Futures')) continue; // spot only
+        if (!IMBALANCE_EXCHANGES.includes(t.exchange)) continue; // only tracked exchanges
         const age = now - t.timestamp;
         const base = t.exchange;
         if (age < VOLUME_WINDOW_5M) {
