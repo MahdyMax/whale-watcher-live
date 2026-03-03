@@ -7,13 +7,7 @@ interface ExchangeImbalanceProps {
 
 type TimeView = '1m' | '5m';
 
-function shortName(exchange: string): string {
-  return exchange
-    .replace('Binance', 'BIN')
-    .replace('Bybit', 'BYB')
-    .replace('Coinbase', 'CB')
-    .replace('OKX', 'OKX');
-}
+// Use full exchange names
 
 export function ExchangeImbalanceBar({ imbalances }: ExchangeImbalanceProps) {
   const [view, setView] = useState<TimeView>('1m');
@@ -53,8 +47,8 @@ export function ExchangeImbalanceBar({ imbalances }: ExchangeImbalanceProps) {
 
         return (
           <div key={ex.exchange} className="flex items-center gap-1.5 text-[10px] font-mono">
-            <span className="w-10 shrink-0 uppercase tracking-wider text-muted-foreground">
-              {shortName(ex.exchange)}
+            <span className="w-16 shrink-0 tracking-wider text-muted-foreground truncate">
+              {ex.exchange}
             </span>
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
               {hasActivity ? (
@@ -83,8 +77,8 @@ export function ExchangeImbalanceBar({ imbalances }: ExchangeImbalanceProps) {
             >
               {hasActivity ? label : '—'}
             </span>
-            <span className="text-muted-foreground/60 w-8 text-right text-[9px]">
-              {ex.dominance5m >= 1 ? `${ex.dominance5m.toFixed(0)}%` : '<1%'}
+            <span className="text-muted-foreground/60 w-10 text-right text-[9px]">
+              {ex.dominance5m >= 1 ? `★${ex.dominance5m.toFixed(0)}%` : '★<1%'}
             </span>
           </div>
         );
