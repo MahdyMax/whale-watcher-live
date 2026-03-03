@@ -591,23 +591,24 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-119), { time: timeStr, cvd: cvdAccumRef.current, price: priceRef.current }]);
 
-      // Exchange Imbalance (1m + 5m)
+      // Exchange Imbalance (1m + 5m) — keep spot and futures separate
       const exchMap1m = new Map<string, { buy: number; sell: number }>();
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
       let totalVol5m = 0;
       for (const t of trades) {
         const age = now - t.timestamp;
-        const base = t.exchange.replace(' Futures', '');
+        // Keep full exchange name (don't merge spot + futures)
+        const exchName = t.exchange;
         if (age < VOLUME_WINDOW_5M) {
-          const e5 = exchMap5m.get(base) || { buy: 0, sell: 0 };
+          const e5 = exchMap5m.get(exchName) || { buy: 0, sell: 0 };
           if (t.isSell) e5.sell += t.usdValue; else e5.buy += t.usdValue;
-          exchMap5m.set(base, e5);
+          exchMap5m.set(exchName, e5);
           totalVol5m += t.usdValue;
         }
         if (age < VOLUME_WINDOW_1M) {
-          const e1 = exchMap1m.get(base) || { buy: 0, sell: 0 };
+          const e1 = exchMap1m.get(exchName) || { buy: 0, sell: 0 };
           if (t.isSell) e1.sell += t.usdValue; else e1.buy += t.usdValue;
-          exchMap1m.set(base, e1);
+          exchMap1m.set(exchName, e1);
         }
       }
       const imbalances: ExchangeImbalance[] = [];
