@@ -596,8 +596,9 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
       let totalVol5m = 0;
       for (const t of trades) {
+        if (t.exchange.includes('Futures')) continue; // spot only
         const age = now - t.timestamp;
-        const base = t.exchange.replace(' Futures', '');
+        const base = t.exchange;
         if (age < VOLUME_WINDOW_5M) {
           const e5 = exchMap5m.get(base) || { buy: 0, sell: 0 };
           if (t.isSell) e5.sell += t.usdValue; else e5.buy += t.usdValue;
