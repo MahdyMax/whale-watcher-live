@@ -11,11 +11,11 @@ function FactorBar({ label, value, max }: { label: string; value: number; max: n
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[9px] text-muted-foreground w-20 shrink-0 uppercase tracking-wider">{label}</span>
+      <span className="text-[9px] text-muted-foreground w-[6rem] shrink-0 uppercase tracking-wider">{label}</span>
       <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[9px] font-mono text-muted-foreground w-8 text-right">{value.toFixed(0)}</span>
+      <span className="text-[9px] font-mono text-muted-foreground w-[1.3rem] text-right">{value.toFixed(0)}</span>
     </div>
   );
 }
