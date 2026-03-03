@@ -232,9 +232,15 @@ const EXCHANGES: ExchangeConfig[] = [
     parseTrade: (raw) => {
       if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
       const d = raw.data[0];
+      const rawSz = parseFloat(d.sz);
+      const price = parseFloat(d.px);
+      // OKX Futures sz = number of contracts, convert to BTC
+      const quantity = okxCtValCcy === 'BTC'
+        ? rawSz * okxCtVal
+        : (price > 0 ? (rawSz * okxCtVal) / price : 0);
       return {
-        price: parseFloat(d.px),
-        quantity: parseFloat(d.sz),
+        price,
+        quantity,
         isSell: d.side === 'sell',
         tradeId: d.tradeId,
         timestamp: parseInt(d.ts),
