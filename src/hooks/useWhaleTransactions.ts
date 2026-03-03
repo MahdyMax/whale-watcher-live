@@ -597,10 +597,9 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       let totalVol5m = 0;
       const IMBALANCE_EXCHANGES = ['Binance', 'Bybit', 'OKX'];
       for (const t of trades) {
-        if (t.exchange.includes('Futures')) continue; // spot only
-        if (!IMBALANCE_EXCHANGES.includes(t.exchange)) continue; // only tracked exchanges
         const age = now - t.timestamp;
-        const base = t.exchange;
+        const base = t.exchange.replace(' Futures', '');
+        if (!IMBALANCE_EXCHANGES.includes(base)) continue; // Binance/Bybit/OKX only (spot + futures)
         if (age < VOLUME_WINDOW_5M) {
           const e5 = exchMap5m.get(base) || { buy: 0, sell: 0 };
           if (t.isSell) e5.sell += t.usdValue; else e5.buy += t.usdValue;
