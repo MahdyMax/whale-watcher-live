@@ -591,30 +591,28 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-119), { time: timeStr, cvd: cvdAccumRef.current, price: priceRef.current }]);
 
-      // Exchange Imbalance (1m + 5m) — spot only, merge into base exchange name
-      const SPOT_EXCHANGE_NAMES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
+      // Exchange Imbalance (1m + 5m)
       const exchMap1m = new Map<string, { buy: number; sell: number }>();
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
       let totalVol5m = 0;
       for (const t of trades) {
-        // Skip futures trades
-        if (t.exchange.includes('Futures')) continue;
         const age = now - t.timestamp;
-        const exchName = t.exchange; // Already spot name (Binance, Bybit, Coinbase, OKX)
+        const base = t.exchange.replace(' Futures', '');
         if (age < VOLUME_WINDOW_5M) {
-          const e5 = exchMap5m.get(exchName) || { buy: 0, sell: 0 };
+          const e5 = exchMap5m.get(base) || { buy: 0, sell: 0 };
           if (t.isSell) e5.sell += t.usdValue; else e5.buy += t.usdValue;
-          exchMap5m.set(exchName, e5);
+          exchMap5m.set(base, e5);
           totalVol5m += t.usdValue;
         }
         if (age < VOLUME_WINDOW_1M) {
-          const e1 = exchMap1m.get(exchName) || { buy: 0, sell: 0 };
+          const e1 = exchMap1m.get(base) || { buy: 0, sell: 0 };
           if (t.isSell) e1.sell += t.usdValue; else e1.buy += t.usdValue;
-          exchMap1m.set(exchName, e1);
+          exchMap1m.set(base, e1);
         }
       }
       const imbalances: ExchangeImbalance[] = [];
-      for (const exchange of SPOT_EXCHANGE_NAMES) {
+      const allExchanges = new Set([...exchMap1m.keys(), ...exchMap5m.keys()]);
+      for (const exchange of allExchanges) {
         const d1 = exchMap1m.get(exchange) || { buy: 0, sell: 0 };
         const d5 = exchMap5m.get(exchange) || { buy: 0, sell: 0 };
         imbalances.push({
