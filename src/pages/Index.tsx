@@ -8,11 +8,11 @@ import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
-import { useWhaleTransactions } from '@/hooks/useWhaleTransactions';
+import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 
-import { Radar, Volume2, VolumeX } from 'lucide-react';
+import { Radar, Volume2, VolumeX, ChevronDown } from 'lucide-react';
 
 type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 
@@ -23,8 +23,11 @@ const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
   const [minUsd, setMinUsd] = useState(50_000);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [selectedCoin, setSelectedCoin] = useState('BTC');
+  const [coinMenuOpen, setCoinMenuOpen] = useState(false);
+
   const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
-    useWhaleTransactions(minUsd);
+    useWhaleTransactions(minUsd, selectedCoin);
 
   // Sound alerts for whale trades
   useWhaleSound([...events, ...liquidations], soundEnabled);
@@ -35,11 +38,11 @@ const Index = () => {
     let fresh: WhaleEvent[];
 
     if (tab === 'liquidations') {
-      fresh = liquidations.slice(0, 100);
+      fresh = liquidations.filter(tx => tx.coin === selectedCoin).slice(0, 100);
     } else {
       const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
       fresh = events
-        .filter((tx) => exchanges.includes(tx.exchange))
+        .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
         .slice(0, 25);
     }
 
@@ -47,7 +50,7 @@ const Index = () => {
       cachedRef.current[tab] = fresh;
     }
     return cachedRef.current[tab];
-  }, [events, liquidations, tab]);
+  }, [events, liquidations, tab, selectedCoin]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'spot', label: 'Spot' },
@@ -62,6 +65,7 @@ const Index = () => {
         isConnected={isConnected}
         currentPrice={currentPrice}
         totalMonitored={totalMonitored}
+        coinSymbol={selectedCoin}
       />
 
       {error && (
@@ -70,8 +74,39 @@ const Index = () => {
         </div>
       )}
 
-      {/* Threshold slider + sound toggle */}
+      {/* Coin selector + Threshold slider + sound toggle */}
       <div className="flex items-center border-b border-border">
+        {/* Coin Dropdown */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setCoinMenuOpen(o => !o)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider text-foreground hover:bg-muted/50 transition-colors border-r border-border"
+          >
+            {selectedCoin}
+            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${coinMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {coinMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setCoinMenuOpen(false)} />
+              <div className="absolute top-full left-0 z-50 bg-background border border-border rounded-sm shadow-lg min-w-[120px] py-1">
+                {COINS.map(c => (
+                  <button
+                    key={c.symbol}
+                    onClick={() => { setSelectedCoin(c.symbol); setCoinMenuOpen(false); cachedRef.current = { spot: [], futures: [], liquidations: [], analytics: [] }; }}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${
+                      c.symbol === selectedCoin
+                        ? 'text-buy bg-buy-muted'
+                        : 'text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    {c.symbol}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         <ThresholdSlider value={minUsd} onChange={setMinUsd} />
         <button
           onClick={() => setSoundEnabled((s) => !s)}
@@ -104,17 +139,12 @@ const Index = () => {
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
           <div className="flex flex-col h-full">
-            {/* Top: Whale Score + Net Flow + Exchange Imbalance */}
             <ExchangeImbalanceBar imbalances={exchangeImbalances} />
             <WhaleScoreCard score={whaleScore} />
             <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
-
-            {/* Middle: CVD fills remaining space */}
             <div className="flex-1 min-h-0">
               <CvdChart data={cvdHistory} fill onReset={resetCvd} />
             </div>
-
-            {/* Bottom: Speed + Volume */}
             <SpeedMeter stats={speedStats} />
             <VolumeBar stats={volumeStats} />
           </div>
@@ -125,8 +155,8 @@ const Index = () => {
               <div className="space-y-1">
                 <p className="text-sm font-medium">
                   {tab === 'liquidations'
-                    ? 'Scanning for liquidation events'
-                    : `Scanning for ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
+                    ? `Scanning for ${selectedCoin} liquidation events`
+                    : `Scanning for ${selectedCoin} ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
                 </p>
                 <p className="text-xs opacity-60">
                   Min threshold: ${minUsd.toLocaleString()}
@@ -136,7 +166,6 @@ const Index = () => {
           </div>
         ) : (
           <div className="overflow-y-auto h-full scrollbar-thin">
-            
             <div className="space-y-1 p-3 sm:p-4">
             {allTransactions.map((tx) => (
               <TransactionCard

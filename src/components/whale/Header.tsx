@@ -4,9 +4,10 @@ interface HeaderProps {
   isConnected: boolean;
   currentPrice: number;
   totalMonitored: number;
+  coinSymbol?: string;
 }
 
-export function Header({ isConnected, currentPrice, totalMonitored }: HeaderProps) {
+export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol = 'BTC' }: HeaderProps) {
   return (
     <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border">
       <div className="flex items-center gap-2.5">
@@ -19,13 +20,12 @@ export function Header({ isConnected, currentPrice, totalMonitored }: HeaderProp
       <div className="flex items-center gap-3 sm:gap-5">
         {currentPrice > 0 && (
           <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs text-muted-foreground">BTC/USD</span>
+            <span className="text-xs text-muted-foreground">{coinSymbol}/USD</span>
             <span className="text-sm font-mono font-semibold">
-              ${currentPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              ${currentPrice.toLocaleString('en-US', { maximumFractionDigits: currentPrice < 1 ? 4 : currentPrice < 100 ? 2 : 0 })}
             </span>
           </div>
         )}
-
 
         <div className="flex items-center gap-2">
           <div
