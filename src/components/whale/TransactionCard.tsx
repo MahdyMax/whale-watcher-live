@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
+import { COIN_DECIMALS } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
 import { ExchangeIcon } from './ExchangeIcon';
 
@@ -49,7 +50,7 @@ export const TransactionCard = memo(function TransactionCard({ tx, labelOverride
           ${tx.usdValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </span>
         <span className="text-muted-foreground hidden sm:inline">
-          {tx.btcAmount.toFixed(4)} BTC
+          {tx.btcAmount.toFixed(COIN_DECIMALS[tx.coin] ?? 2)} {tx.coin}
         </span>
         {tx.tradeCount > 1 && (
           <span className="text-muted-foreground text-[10px]">
