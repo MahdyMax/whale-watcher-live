@@ -1,14 +1,59 @@
-// BTC Whale Tracker - Multi-exchange real-time WebSocket hook v5
-// Features: Burst aggregation, enhanced analytics, whale score breakdown, multi-timeframe
+// Multi-Coin Whale Tracker - Multi-exchange real-time WebSocket hook v6
+// Supports: BTC, ETH, XRP, BNB, SOL, ADA, DOGE, TRX, TON, AVAX
 import { useState, useEffect, useRef, useCallback } from 'react';
+
+/* ── Coin Configuration ── */
+
+export interface CoinDef {
+  symbol: string;
+  binance: string;
+  bybit: string;
+  coinbase: string | null;
+  okxSpot: string;
+  okxSwap: string | null;
+}
+
+export const COINS: CoinDef[] = [
+  { symbol: 'BTC', binance: 'btcusdt', bybit: 'BTCUSDT', coinbase: 'BTC-USD', okxSpot: 'BTC-USDT', okxSwap: 'BTC-USDT-SWAP' },
+  { symbol: 'ETH', binance: 'ethusdt', bybit: 'ETHUSDT', coinbase: 'ETH-USD', okxSpot: 'ETH-USDT', okxSwap: 'ETH-USDT-SWAP' },
+  { symbol: 'XRP', binance: 'xrpusdt', bybit: 'XRPUSDT', coinbase: 'XRP-USD', okxSpot: 'XRP-USDT', okxSwap: 'XRP-USDT-SWAP' },
+  { symbol: 'BNB', binance: 'bnbusdt', bybit: 'BNBUSDT', coinbase: null, okxSpot: 'BNB-USDT', okxSwap: 'BNB-USDT-SWAP' },
+  { symbol: 'SOL', binance: 'solusdt', bybit: 'SOLUSDT', coinbase: 'SOL-USD', okxSpot: 'SOL-USDT', okxSwap: 'SOL-USDT-SWAP' },
+  { symbol: 'ADA', binance: 'adausdt', bybit: 'ADAUSDT', coinbase: 'ADA-USD', okxSpot: 'ADA-USDT', okxSwap: 'ADA-USDT-SWAP' },
+  { symbol: 'DOGE', binance: 'dogeusdt', bybit: 'DOGEUSDT', coinbase: 'DOGE-USD', okxSpot: 'DOGE-USDT', okxSwap: 'DOGE-USDT-SWAP' },
+  { symbol: 'TRX', binance: 'trxusdt', bybit: 'TRXUSDT', coinbase: null, okxSpot: 'TRX-USDT', okxSwap: 'TRX-USDT-SWAP' },
+  { symbol: 'TON', binance: 'tonusdt', bybit: 'TONUSDT', coinbase: null, okxSpot: 'TON-USDT', okxSwap: 'TON-USDT-SWAP' },
+  { symbol: 'AVAX', binance: 'avaxusdt', bybit: 'AVAXUSDT', coinbase: 'AVAX-USD', okxSpot: 'AVAX-USDT', okxSwap: 'AVAX-USDT-SWAP' },
+];
+
+export const COIN_DECIMALS: Record<string, number> = {
+  BTC: 4, ETH: 3, XRP: 0, BNB: 2, SOL: 2, ADA: 0, DOGE: 0, TRX: 0, TON: 1, AVAX: 2,
+};
+
+// Lookup maps
+const binanceToSymbol: Record<string, string> = {};
+const bybitToSymbol: Record<string, string> = {};
+const coinbaseToSymbol: Record<string, string> = {};
+const okxSpotToSymbol: Record<string, string> = {};
+const okxSwapToSymbol: Record<string, string> = {};
+for (const c of COINS) {
+  binanceToSymbol[c.binance] = c.symbol;
+  bybitToSymbol[c.bybit] = c.symbol;
+  if (c.coinbase) coinbaseToSymbol[c.coinbase] = c.symbol;
+  okxSpotToSymbol[c.okxSpot] = c.symbol;
+  if (c.okxSwap) okxSwapToSymbol[c.okxSwap] = c.symbol;
+}
+
+/* ── Types ── */
 
 export interface WhaleEvent {
   id: string;
   type: 'buy' | 'sell' | 'liquidation';
   direction?: 'long' | 'short';
-  btcAmount: number;
+  coin: string;
+  btcAmount: number; // coin quantity
   usdValue: number;
-  pricePerBtc: number;
+  pricePerBtc: number; // price per coin unit
   exchange: string;
   timestamp: Date;
   tradeCount: number;
@@ -16,75 +61,56 @@ export interface WhaleEvent {
 }
 
 export interface VolumeStats {
-  buy1m: number;
-  sell1m: number;
-  buy5m: number;
-  sell5m: number;
-  buy15m: number;
-  sell15m: number;
-  netDelta1m: number;
-  netDelta5m: number;
-  netDelta15m: number;
-  spotNet1m: number;
-  spotNet5m: number;
-  spotNet15m: number;
-  futuresNet1m: number;
-  futuresNet5m: number;
-  futuresNet15m: number;
-  // Volume anomaly: ratio of current 1m vol vs rolling 5m average per minute
+  buy1m: number; sell1m: number;
+  buy5m: number; sell5m: number;
+  buy15m: number; sell15m: number;
+  netDelta1m: number; netDelta5m: number; netDelta15m: number;
+  spotNet1m: number; spotNet5m: number; spotNet15m: number;
+  futuresNet1m: number; futuresNet5m: number; futuresNet15m: number;
   volumeAnomalyRatio: number;
 }
 
-export interface CvdPoint {
-  time: string;
-  cvd: number;
-  price: number;
-}
+export interface CvdPoint { time: string; cvd: number; price: number; }
 
 export interface ExchangeImbalance {
   exchange: string;
-  buyVol1m: number;
-  sellVol1m: number;
-  net1m: number;
-  buyVol5m: number;
-  sellVol5m: number;
-  net5m: number;
+  buyVol1m: number; sellVol1m: number; net1m: number;
+  buyVol5m: number; sellVol5m: number; net5m: number;
   label1m: 'Heavy Buying' | 'Heavy Selling' | 'Neutral';
   label5m: 'Heavy Buying' | 'Heavy Selling' | 'Neutral';
-  dominance5m: number; // % of total 5m volume
+  dominance5m: number;
 }
 
 export interface SpeedStats {
-  tradesPerSec: number;
-  volumePerSec: number;
-  whalesPerMin: number;
-  liqsPerMin: number;
+  tradesPerSec: number; volumePerSec: number;
+  whalesPerMin: number; liqsPerMin: number;
   intensity: 'low' | 'medium' | 'high';
-  spike: boolean;
-  prevTradesPerSec: number;
+  spike: boolean; prevTradesPerSec: number;
 }
 
 export interface WhaleScoreBreakdown {
-  volumeIntensity: number;    // 0-20
-  tradeVelocity: number;      // 0-20
-  aggressionFactor: number;   // 0-20
-  exchangeDiversity: number;  // 0-20
-  liquidationCorrelation: number; // 0-20
+  volumeIntensity: number;
+  tradeVelocity: number;
+  aggressionFactor: number;
+  exchangeDiversity: number;
+  liquidationCorrelation: number;
 }
 
 export interface WhaleScore {
   score: number;
   sentiment: 'Bullish' | 'Bearish' | 'Neutral';
   breakdown: WhaleScoreBreakdown;
-  wpiTrend: 'rising' | 'falling' | 'stable'; // Whale Pressure Index trend
+  wpiTrend: 'rising' | 'falling' | 'stable';
 }
 
 export interface SpotFuturesDivergence {
   divergent: boolean;
   spotBias: 'buy' | 'sell' | 'neutral';
   futuresBias: 'buy' | 'sell' | 'neutral';
-  magnitude: number; // 0-100
+  magnitude: number;
 }
+
+/* ── Constants ── */
 
 const DEFAULT_MIN_USD = 50_000;
 const TRADE_AGGREGATION_WINDOW = 500;
@@ -97,82 +123,122 @@ const MAX_TRADE_BUFFER = 200;
 const MAX_LIQ_BUFFER = 1000;
 
 interface RawTrade {
-  price: number;
-  quantity: number;
-  usdValue: number;
-  isSell: boolean;
-  exchange: string;
-  timestamp: number;
+  price: number; quantity: number; usdValue: number;
+  isSell: boolean; exchange: string; timestamp: number; coin: string;
 }
 
 interface RawLiquidation {
-  price: number;
-  quantity: number;
-  usdValue: number;
-  side: 'long' | 'short';
-  exchange: string;
-  timestamp: number;
+  price: number; quantity: number; usdValue: number;
+  side: 'long' | 'short'; exchange: string; timestamp: number; coin: string;
 }
+
+/* ── OKX Contract Values (fetched once) ── */
+
+const okxCtVals: Record<string, { ctVal: number; ctValCcy: string }> = {};
+
+(async () => {
+  try {
+    const res = await fetch('https://www.okx.com/api/v5/public/instruments?instType=SWAP');
+    const json = await res.json();
+    for (const inst of json?.data || []) {
+      okxCtVals[inst.instId] = {
+        ctVal: parseFloat(inst.ctVal) || 0.01,
+        ctValCcy: inst.ctValCcy || 'USDT',
+      };
+    }
+    console.log(`[OKX] Loaded contract info for ${Object.keys(okxCtVals).length} instruments`);
+  } catch (e) {
+    console.warn('[OKX] Failed to fetch contract info', e);
+  }
+})();
+
+/* ── Exchange Configs ── */
 
 interface ExchangeConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number } | null;
+  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number; coin: string } | null;
 }
 
 interface LiquidationConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseLiquidation: (data: any) => { price: number; usdValue: number; quantity: number; side: 'long' | 'short'; timestamp: number } | null;
+  parseLiquidation: (data: any) => { price: number; usdValue: number; quantity: number; side: 'long' | 'short'; timestamp: number; coin: string } | null;
 }
+
+// Binance combined stream URLs
+const binanceSpotStreams = COINS.map(c => `${c.binance}@aggTrade`).join('/');
+const binanceFuturesStreams = COINS.map(c => `${c.binance}@aggTrade`).join('/');
+const binanceLiqStreams = COINS.map(c => `${c.binance}@forceOrder`).join('/');
+
+// Bybit subscribe args
+const bybitSpotArgs = COINS.map(c => `publicTrade.${c.bybit}`);
+const bybitFuturesArgs = COINS.map(c => `publicTrade.${c.bybit}`);
+const bybitLiqArgs = COINS.map(c => `liquidation.${c.bybit}`);
+
+// Coinbase product IDs
+const coinbaseProductIds = COINS.filter(c => c.coinbase).map(c => c.coinbase!);
+
+// OKX subscribe args
+const okxSpotArgs = COINS.map(c => ({ channel: 'trades', instId: c.okxSpot }));
+const okxFuturesArgs = COINS.filter(c => c.okxSwap).map(c => ({ channel: 'trades', instId: c.okxSwap! }));
+const okxLiqArgs = COINS.filter(c => c.okxSwap).map(c => ({ channel: 'liquidation-orders', instType: 'SWAP', instId: c.okxSwap! }));
 
 const EXCHANGES: ExchangeConfig[] = [
   {
     name: 'Binance',
-    url: 'wss://stream.binance.com:9443/ws/btcusdt@aggTrade',
-    parseTrade: (data) => ({
-      price: parseFloat(data.p),
-      quantity: parseFloat(data.q),
-      isSell: data.m,
-      tradeId: `${data.a}`,
-      timestamp: data.T,
-    }),
+    url: `wss://stream.binance.com:9443/stream?streams=${binanceSpotStreams}`,
+    parseTrade: (raw) => {
+      if (!raw.stream || !raw.data) return null;
+      const sym = raw.stream.replace('@aggTrade', '');
+      const coin = binanceToSymbol[sym];
+      if (!coin) return null;
+      const d = raw.data;
+      return { price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin };
+    },
   },
   {
     name: 'Binance Futures',
-    url: 'wss://fstream.binance.com/ws/btcusdt@aggTrade',
-    parseTrade: (data) => ({
-      price: parseFloat(data.p),
-      quantity: parseFloat(data.q),
-      isSell: data.m,
-      tradeId: `${data.a}`,
-      timestamp: data.T,
-    }),
+    url: `wss://fstream.binance.com/stream?streams=${binanceFuturesStreams}`,
+    parseTrade: (raw) => {
+      if (!raw.stream || !raw.data) return null;
+      const sym = raw.stream.replace('@aggTrade', '');
+      const coin = binanceToSymbol[sym];
+      if (!coin) return null;
+      const d = raw.data;
+      return { price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin };
+    },
   },
   {
     name: 'Bybit',
     url: 'wss://stream.bybit.com/v5/public/spot',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: bybitSpotArgs }));
     },
     parseTrade: (raw) => {
-      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
+      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return null;
+      const pairSym = raw.topic.replace('publicTrade.', '');
+      const coin = bybitToSymbol[pairSym];
+      if (!coin) return null;
       const d = raw.data[0];
-      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T };
+      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin };
     },
   },
   {
     name: 'Bybit Futures',
     url: 'wss://stream.bybit.com/v5/public/linear',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({ op: 'subscribe', args: ['publicTrade.BTCUSDT'] }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: bybitFuturesArgs }));
     },
     parseTrade: (raw) => {
-      if (raw.topic !== 'publicTrade.BTCUSDT' || !raw.data?.length) return null;
+      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return null;
+      const pairSym = raw.topic.replace('publicTrade.', '');
+      const coin = bybitToSymbol[pairSym];
+      if (!coin) return null;
       const d = raw.data[0];
-      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T };
+      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin };
     },
   },
   {
@@ -181,7 +247,7 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({
         type: 'subscribe',
-        product_ids: ['BTC-USD'],
+        product_ids: coinbaseProductIds,
         channel: 'market_trades',
       }));
     },
@@ -190,12 +256,15 @@ const EXCHANGES: ExchangeConfig[] = [
       const evt = raw.events[0];
       if (!evt.trades?.length) return null;
       const t = evt.trades[0];
+      const coin = coinbaseToSymbol[t.product_id];
+      if (!coin) return null;
       return {
         price: parseFloat(t.price),
         quantity: parseFloat(t.size),
         isSell: t.side === 'SELL',
         tradeId: t.trade_id,
         timestamp: new Date(t.time).getTime(),
+        coin,
       };
     },
   },
@@ -203,13 +272,12 @@ const EXCHANGES: ExchangeConfig[] = [
     name: 'OKX',
     url: 'wss://ws.okx.com:8443/ws/v5/public',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({
-        op: 'subscribe',
-        args: [{ channel: 'trades', instId: 'BTC-USDT' }],
-      }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: okxSpotArgs }));
     },
     parseTrade: (raw) => {
       if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+      const coin = okxSpotToSymbol[raw.arg.instId];
+      if (!coin) return null;
       const d = raw.data[0];
       return {
         price: parseFloat(d.px),
@@ -217,6 +285,7 @@ const EXCHANGES: ExchangeConfig[] = [
         isSell: d.side === 'sell',
         tradeId: d.tradeId,
         timestamp: parseInt(d.ts),
+        coin,
       };
     },
   },
@@ -224,55 +293,42 @@ const EXCHANGES: ExchangeConfig[] = [
     name: 'OKX Futures',
     url: 'wss://ws.okx.com:8443/ws/v5/public',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({
-        op: 'subscribe',
-        args: [{ channel: 'trades', instId: 'BTC-USDT-SWAP' }],
-      }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: okxFuturesArgs }));
     },
     parseTrade: (raw) => {
       if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+      const instId = raw.arg.instId;
+      const coin = okxSwapToSymbol[instId];
+      if (!coin) return null;
       const d = raw.data[0];
       const rawSz = parseFloat(d.sz);
       const price = parseFloat(d.px);
-      // OKX Futures sz = number of contracts, convert to BTC
-      const quantity = okxCtValCcy === 'BTC'
-        ? rawSz * okxCtVal
-        : (price > 0 ? (rawSz * okxCtVal) / price : 0);
+      const ctInfo = okxCtVals[instId];
+      if (!ctInfo) return null;
+      const quantity = ctInfo.ctValCcy !== 'USDT'
+        ? rawSz * ctInfo.ctVal
+        : (price > 0 ? (rawSz * ctInfo.ctVal) / price : 0);
       return {
-        price,
-        quantity,
+        price, quantity,
         isSell: d.side === 'sell',
         tradeId: d.tradeId,
         timestamp: parseInt(d.ts),
+        coin,
       };
     },
   },
 ];
 
-let okxCtVal = 0.01;
-let okxCtValCcy: 'BTC' | 'USDT' = 'BTC';
-
-(async () => {
-  try {
-    const res = await fetch('https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=BTC-USDT-SWAP');
-    const json = await res.json();
-    const inst = json?.data?.[0];
-    if (inst) {
-      okxCtVal = parseFloat(inst.ctVal) || 0.01;
-      okxCtValCcy = inst.ctValCcy === 'USDT' ? 'USDT' : 'BTC';
-      console.log(`[OKX] Contract size: ${okxCtVal} ${okxCtValCcy}`);
-    }
-  } catch (e) {
-    console.warn('[OKX] Failed to fetch contract info, using fallback 0.01 BTC', e);
-  }
-})();
-
 const LIQUIDATION_FEEDS: LiquidationConfig[] = [
   {
     name: 'Binance',
-    url: 'wss://fstream.binance.com/ws/btcusdt@forceOrder',
-    parseLiquidation: (data) => {
-      const o = data?.o;
+    url: `wss://fstream.binance.com/stream?streams=${binanceLiqStreams}`,
+    parseLiquidation: (raw) => {
+      if (!raw.stream || !raw.data) return null;
+      const sym = raw.stream.replace('@forceOrder', '');
+      const coin = binanceToSymbol[sym];
+      if (!coin) return null;
+      const o = raw.data?.o;
       if (!o) return null;
       const price = parseFloat(o.ap || o.p);
       const quantity = parseFloat(o.q);
@@ -283,6 +339,7 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
         price, quantity, usdValue,
         side: o.S === 'SELL' ? 'long' as const : 'short' as const,
         timestamp: Number(o.T),
+        coin,
       };
     },
   },
@@ -290,10 +347,13 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
     name: 'Bybit',
     url: 'wss://stream.bybit.com/v5/public/linear',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({ op: 'subscribe', args: ['liquidation.BTCUSDT'] }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: bybitLiqArgs }));
     },
     parseLiquidation: (raw) => {
-      if (raw.topic !== 'liquidation.BTCUSDT' || !raw.data) return null;
+      if (!raw.topic?.startsWith('liquidation.') || !raw.data) return null;
+      const pairSym = raw.topic.replace('liquidation.', '');
+      const coin = bybitToSymbol[pairSym];
+      if (!coin) return null;
       const d = raw.data;
       const price = parseFloat(d.price);
       const size = parseFloat(d.size);
@@ -305,6 +365,7 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
         price, quantity, usdValue,
         side: d.side === 'Sell' ? 'long' as const : 'short' as const,
         timestamp: Number(d.updatedTime),
+        coin,
       };
     },
   },
@@ -312,39 +373,38 @@ const LIQUIDATION_FEEDS: LiquidationConfig[] = [
     name: 'OKX',
     url: 'wss://ws.okx.com:8443/ws/v5/public',
     onOpen: (ws) => {
-      ws.send(JSON.stringify({
-        op: 'subscribe',
-        args: [{ channel: 'liquidation-orders', instType: 'SWAP', instId: 'BTC-USDT-SWAP' }],
-      }));
+      ws.send(JSON.stringify({ op: 'subscribe', args: okxLiqArgs }));
     },
     parseLiquidation: (raw) => {
       if (raw.arg?.channel !== 'liquidation-orders' || !raw.data?.length) return null;
       const d = raw.data[0];
-      if (!d.instId?.startsWith('BTC-')) return null;
+      const instId = d.instId;
+      const coin = okxSwapToSymbol[instId];
+      if (!coin) return null;
       const details = d.details?.[0];
       if (!details) return null;
       const price = parseFloat(details.bkPx);
       const sz = parseFloat(details.sz);
       const timestamp = Number(details.ts || d.ts);
       if (isNaN(price) || isNaN(sz) || isNaN(timestamp)) return null;
+      const ctInfo = okxCtVals[instId];
+      if (!ctInfo) return null;
       let usdValue: number;
       let quantity: number;
-      if (okxCtValCcy === 'BTC') {
-        quantity = sz * okxCtVal;
+      if (ctInfo.ctValCcy !== 'USDT') {
+        quantity = sz * ctInfo.ctVal;
         usdValue = quantity * price;
       } else {
-        usdValue = sz * okxCtVal;
+        usdValue = sz * ctInfo.ctVal;
         quantity = price > 0 ? usdValue / price : 0;
       }
       if (!isFinite(usdValue) || usdValue <= 0) return null;
-      return {
-        price, quantity, usdValue,
-        side: details.side === 'sell' ? 'long' as const : 'short' as const,
-        timestamp,
-      };
+      return { price, quantity, usdValue, side: details.side === 'sell' ? 'long' as const : 'short' as const, timestamp, coin };
     },
   },
 ];
+
+/* ── Helpers ── */
 
 function getBackoff(attempt: number): number {
   return Math.min(1000 * Math.pow(2, attempt), 30_000);
@@ -356,6 +416,8 @@ function getImbalanceLabel(buy: number, sell: number): 'Heavy Buying' | 'Heavy S
   const ratio = total > 0 ? Math.abs(net) / total : 0;
   return ratio < 0.15 ? 'Neutral' : net > 0 ? 'Heavy Buying' : 'Heavy Selling';
 }
+
+/* ── Hook ── */
 
 export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const [events, setEvents] = useState<WhaleEvent[]>([]);
@@ -400,17 +462,14 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const monitorCountRef = useRef(0);
   const connectedCountRef = useRef(0);
   const minUsdRef = useRef(minUsd);
-  const volumeTradesRef = useRef<{ timestamp: number; usdValue: number; isSell: boolean; exchange: string }[]>([]);
-  // Track whale events and liquidations timestamps for speed metrics
+  const volumeTradesRef = useRef<{ timestamp: number; usdValue: number; isSell: boolean; exchange: string; coin: string }[]>([]);
   const whaleTimestampsRef = useRef<number[]>([]);
   const liqTimestampsRef = useRef<number[]>([]);
   const prevTpsRef = useRef(0);
   const wpiHistoryRef = useRef<number[]>([]);
   const priceRef = useRef(0);
 
-  useEffect(() => {
-    minUsdRef.current = minUsd;
-  }, [minUsd]);
+  useEffect(() => { minUsdRef.current = minUsd; }, [minUsd]);
 
   // Trade burst aggregation (500ms)
   useEffect(() => {
@@ -421,7 +480,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       if (buffer.length > 0) {
         const groups = new Map<string, RawTrade[]>();
         for (const t of buffer) {
-          const key = `${t.isSell ? 'sell' : 'buy'}|${t.exchange}`;
+          const key = `${t.isSell ? 'sell' : 'buy'}|${t.exchange}|${t.coin}`;
           const arr = groups.get(key) || [];
           arr.push(t);
           groups.set(key, arr);
@@ -430,15 +489,16 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         const newEvents: WhaleEvent[] = [];
         for (const [key, trades] of groups) {
           const totalUsd = trades.reduce((s, t) => s + t.usdValue, 0);
-          const totalBtc = trades.reduce((s, t) => s + t.quantity, 0);
-          const avgPrice = totalUsd / totalBtc;
-          const [type, exchange] = key.split('|');
+          const totalQty = trades.reduce((s, t) => s + t.quantity, 0);
+          const avgPrice = totalUsd / totalQty;
+          const [type, exchange, coin] = key.split('|');
 
           if (totalUsd >= minUsdRef.current) {
             newEvents.push({
-              id: `${exchange}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              id: `${exchange}-${coin}-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: type as 'buy' | 'sell',
-              btcAmount: totalBtc,
+              coin,
+              btcAmount: totalQty,
               usdValue: totalUsd,
               pricePerBtc: avgPrice,
               exchange,
@@ -457,9 +517,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       setTotalMonitored(monitorCountRef.current);
     }, TRADE_AGGREGATION_WINDOW);
 
-    return () => {
-      if (flushRef.current) clearInterval(flushRef.current);
-    };
+    return () => { if (flushRef.current) clearInterval(flushRef.current); };
   }, []);
 
   // Liquidation burst aggregation
@@ -471,7 +529,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       const groups = new Map<string, RawLiquidation[]>();
       for (const l of buffer) {
-        const key = `${l.exchange}|${l.side}`;
+        const key = `${l.exchange}|${l.side}|${l.coin}`;
         const arr = groups.get(key) || [];
         arr.push(l);
         groups.set(key, arr);
@@ -480,15 +538,16 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const newLiqs: WhaleEvent[] = [];
       for (const [key, liqs] of groups) {
         const totalUsd = liqs.reduce((s, l) => s + l.usdValue, 0);
-        const totalBtc = liqs.reduce((s, l) => s + l.quantity, 0);
-        const avgPrice = totalUsd / totalBtc;
-        const [exchange, side] = key.split('|');
+        const totalQty = liqs.reduce((s, l) => s + l.quantity, 0);
+        const avgPrice = totalUsd / totalQty;
+        const [exchange, side, coin] = key.split('|');
 
         newLiqs.push({
-          id: `liq-${exchange}-${side}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `liq-${exchange}-${coin}-${side}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'liquidation',
           direction: side as 'long' | 'short',
-          btcAmount: totalBtc,
+          coin,
+          btcAmount: totalQty,
           usdValue: totalUsd,
           pricePerBtc: avgPrice,
           exchange,
@@ -504,9 +563,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       }
     }, LIQ_AGGREGATION_WINDOW);
 
-    return () => {
-      if (liqFlushRef.current) clearInterval(liqFlushRef.current);
-    };
+    return () => { if (liqFlushRef.current) clearInterval(liqFlushRef.current); };
   }, []);
 
   // Reset CVD
@@ -536,29 +593,16 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         if (t.isSell) {
           sell15m += t.usdValue;
           if (isFutures) futSell15m += t.usdValue; else spotSell15m += t.usdValue;
-          if (age < VOLUME_WINDOW_5M) {
-            sell5m += t.usdValue;
-            if (isFutures) futSell5m += t.usdValue; else spotSell5m += t.usdValue;
-          }
-          if (age < VOLUME_WINDOW_1M) {
-            sell1m += t.usdValue;
-            if (isFutures) futSell1m += t.usdValue; else spotSell1m += t.usdValue;
-          }
+          if (age < VOLUME_WINDOW_5M) { sell5m += t.usdValue; if (isFutures) futSell5m += t.usdValue; else spotSell5m += t.usdValue; }
+          if (age < VOLUME_WINDOW_1M) { sell1m += t.usdValue; if (isFutures) futSell1m += t.usdValue; else spotSell1m += t.usdValue; }
         } else {
           buy15m += t.usdValue;
           if (isFutures) futBuy15m += t.usdValue; else spotBuy15m += t.usdValue;
-          if (age < VOLUME_WINDOW_5M) {
-            buy5m += t.usdValue;
-            if (isFutures) futBuy5m += t.usdValue; else spotBuy5m += t.usdValue;
-          }
-          if (age < VOLUME_WINDOW_1M) {
-            buy1m += t.usdValue;
-            if (isFutures) futBuy1m += t.usdValue; else spotBuy1m += t.usdValue;
-          }
+          if (age < VOLUME_WINDOW_5M) { buy5m += t.usdValue; if (isFutures) futBuy5m += t.usdValue; else spotBuy5m += t.usdValue; }
+          if (age < VOLUME_WINDOW_1M) { buy1m += t.usdValue; if (isFutures) futBuy1m += t.usdValue; else spotBuy1m += t.usdValue; }
         }
       }
 
-      // Volume anomaly: 1m vol vs average per minute from 5m window
       const vol1m = buy1m + sell1m;
       const vol5m = buy5m + sell5m;
       const avgPerMin5m = vol5m / 5;
@@ -566,19 +610,13 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       setVolumeStats({
         buy1m, sell1m, buy5m, sell5m, buy15m, sell15m,
-        netDelta1m: buy1m - sell1m,
-        netDelta5m: buy5m - sell5m,
-        netDelta15m: buy15m - sell15m,
-        spotNet1m: spotBuy1m - spotSell1m,
-        spotNet5m: spotBuy5m - spotSell5m,
-        spotNet15m: spotBuy15m - spotSell15m,
-        futuresNet1m: futBuy1m - futSell1m,
-        futuresNet5m: futBuy5m - futSell5m,
-        futuresNet15m: futBuy15m - futSell15m,
+        netDelta1m: buy1m - sell1m, netDelta5m: buy5m - sell5m, netDelta15m: buy15m - sell15m,
+        spotNet1m: spotBuy1m - spotSell1m, spotNet5m: spotBuy5m - spotSell5m, spotNet15m: spotBuy15m - spotSell15m,
+        futuresNet1m: futBuy1m - futSell1m, futuresNet5m: futBuy5m - futSell5m, futuresNet15m: futBuy15m - futSell15m,
         volumeAnomalyRatio: anomalyRatio,
       });
 
-      // CVD with price tracking
+      // CVD
       const cvdCursor = cvdLastTsRef.current;
       let maxTs = cvdCursor;
       for (const t of trades) {
@@ -591,7 +629,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-119), { time: timeStr, cvd: cvdAccumRef.current, price: priceRef.current }]);
 
-      // Exchange Imbalance (1m + 5m)
+      // Exchange Imbalance (Binance, Bybit, OKX — spot + futures combined)
       const exchMap1m = new Map<string, { buy: number; sell: number }>();
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
       let totalVol5m = 0;
@@ -599,7 +637,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
       for (const t of trades) {
         const age = now - t.timestamp;
         const base = t.exchange.replace(' Futures', '');
-        if (!IMBALANCE_EXCHANGES.includes(base)) continue; // Binance/Bybit/OKX only (spot + futures)
+        if (!IMBALANCE_EXCHANGES.includes(base)) continue;
         if (age < VOLUME_WINDOW_5M) {
           const e5 = exchMap5m.get(base) || { buy: 0, sell: 0 };
           if (t.isSell) e5.sell += t.usdValue; else e5.buy += t.usdValue;
@@ -626,19 +664,15 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           dominance5m: totalVol5m > 0 ? ((d5.buy + d5.sell) / totalVol5m) * 100 : 0,
         });
       }
-      // Sort by dominance
       imbalances.sort((a, b) => b.dominance5m - a.dominance5m);
       setExchangeImbalances(imbalances);
 
-      // Speed Meter (3s avg) + whale/min + liq/min + spike detection
+      // Speed Meter
       const recentWindow = trades.filter(t => now - t.timestamp < 3000);
       const tps = recentWindow.length / 3;
       const vps = recentWindow.reduce((s, t) => s + t.usdValue, 0) / 3;
-
-      // Clean old timestamps (keep 1 min)
       whaleTimestampsRef.current = whaleTimestampsRef.current.filter(ts => now - ts < 60_000);
       liqTimestampsRef.current = liqTimestampsRef.current.filter(ts => now - ts < 60_000);
-
       const wpm = whaleTimestampsRef.current.length;
       const lpm = liqTimestampsRef.current.length;
       const prevTps = prevTpsRef.current;
@@ -655,26 +689,15 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         prevTradesPerSec: Math.round(prevTps),
       });
 
-      // Enhanced Whale Score with breakdown
-      const totalTradeCount = trades.length;
-      
-      // 1. Volume Intensity (0-20): how much volume vs expected
+      // Whale Score
       const volumeIntensity = Math.min((anomalyRatio / 3) * 20, 20);
-
-      // 2. Trade Velocity (0-20): trades per second normalized
       const tradeVelocity = Math.min((tps / 60) * 20, 20);
-
-      // 3. Aggression Factor (0-20): imbalance between buy/sell
       const totalBuys = buy5m;
       const totalSells = sell5m;
       const totalVol = totalBuys + totalSells;
       const aggressionFactor = totalVol > 0 ? Math.min((Math.abs(totalBuys - totalSells) / totalVol) * 40, 20) : 0;
-
-      // 4. Exchange Diversity (0-20): more exchanges active = higher
       const activeExchanges = imbalances.filter(e => (e.buyVol1m + e.sellVol1m) > 0).length;
       const exchangeDiversity = Math.min((activeExchanges / 4) * 20, 20);
-
-      // 5. Liquidation Correlation (0-20): liquidation activity correlating with volume
       const liquidationCorrelation = Math.min((lpm / 10) * 20, 20);
 
       const breakdown: WhaleScoreBreakdown = {
@@ -687,8 +710,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
       const rawScore = volumeIntensity + tradeVelocity + aggressionFactor + exchangeDiversity + liquidationCorrelation;
       const score = Math.round(Math.min(Math.max(rawScore, 0), 100));
-      
-      // WPI trend
+
       wpiHistoryRef.current.push(score);
       if (wpiHistoryRef.current.length > 30) wpiHistoryRef.current = wpiHistoryRef.current.slice(-30);
       const wpiRecent = wpiHistoryRef.current.slice(-5);
@@ -725,9 +747,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
 
     }, 1000);
 
-    return () => {
-      if (volumeRef.current) clearInterval(volumeRef.current);
-    };
+    return () => { if (volumeRef.current) clearInterval(volumeRef.current); };
   }, []);
 
   const connectExchange = useCallback((config: ExchangeConfig, index: number) => {
@@ -751,18 +771,21 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           const trade = config.parseTrade(raw);
           if (!trade) return;
 
-          const { price, quantity, isSell, timestamp } = trade;
+          const { price, quantity, isSell, timestamp, coin } = trade;
           const usdValue = price * quantity;
 
-          setCurrentPrice(price);
-          priceRef.current = price;
+          // Only update header price for BTC
+          if (coin === 'BTC') {
+            setCurrentPrice(price);
+            priceRef.current = price;
+          }
           monitorCountRef.current += 1;
 
-          volumeTradesRef.current.push({ timestamp, usdValue, isSell, exchange: config.name });
+          volumeTradesRef.current.push({ timestamp, usdValue, isSell, exchange: config.name, coin });
 
           tradeBufferRef.current.push({
             price, quantity, usdValue, isSell,
-            exchange: config.name, timestamp,
+            exchange: config.name, timestamp, coin,
           });
         } catch (e) {
           console.error(`Parse error (${config.name}):`, e);
@@ -819,6 +842,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
             side: liq.side,
             exchange: config.name,
             timestamp: liq.timestamp,
+            coin: liq.coin,
           });
         } catch (e) {
           console.error(`Liquidation parse error (${config.name}):`, e);
