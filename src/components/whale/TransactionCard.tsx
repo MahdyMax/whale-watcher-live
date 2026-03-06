@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
+import { COIN_DECIMALS } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
 import { ExchangeIcon } from './ExchangeIcon';
 
