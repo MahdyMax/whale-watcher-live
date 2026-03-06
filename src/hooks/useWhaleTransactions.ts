@@ -419,7 +419,7 @@ function getImbalanceLabel(buy: number, sell: number): 'Heavy Buying' | 'Heavy S
 
 /* ── Hook ── */
 
-export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
+export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedCoin: string = 'BTC') {
   const [events, setEvents] = useState<WhaleEvent[]>([]);
   const [liquidations, setLiquidations] = useState<WhaleEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -468,8 +468,24 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
   const prevTpsRef = useRef(0);
   const wpiHistoryRef = useRef<number[]>([]);
   const priceRef = useRef(0);
+  const pricesRef = useRef<Record<string, number>>({});
+  const selectedCoinRef = useRef(selectedCoin);
 
   useEffect(() => { minUsdRef.current = minUsd; }, [minUsd]);
+
+  // Sync selectedCoin + reset CVD on coin change
+  useEffect(() => {
+    if (selectedCoinRef.current !== selectedCoin) {
+      selectedCoinRef.current = selectedCoin;
+      cvdAccumRef.current = 0;
+      cvdLastTsRef.current = 0;
+      setCvdHistory([]);
+      wpiHistoryRef.current = [];
+      // Update current price from stored prices
+      setCurrentPrice(pricesRef.current[selectedCoin] || 0);
+      priceRef.current = pricesRef.current[selectedCoin] || 0;
+    }
+  }, [selectedCoin]);
 
   // Trade burst aggregation (500ms)
   useEffect(() => {
@@ -581,7 +597,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
         (t) => now - t.timestamp < VOLUME_WINDOW_15M
       );
 
-      const trades = volumeTradesRef.current;
+      const trades = volumeTradesRef.current.filter(t => t.coin === selectedCoinRef.current);
       let buy1m = 0, sell1m = 0, buy5m = 0, sell5m = 0, buy15m = 0, sell15m = 0;
       let spotBuy1m = 0, spotSell1m = 0, futBuy1m = 0, futSell1m = 0;
       let spotBuy5m = 0, spotSell5m = 0, futBuy5m = 0, futSell5m = 0;
@@ -774,8 +790,9 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD) {
           const { price, quantity, isSell, timestamp, coin } = trade;
           const usdValue = price * quantity;
 
-          // Only update header price for BTC
-          if (coin === 'BTC') {
+          // Track all coin prices
+          pricesRef.current[coin] = price;
+          if (coin === selectedCoinRef.current) {
             setCurrentPrice(price);
             priceRef.current = price;
           }
