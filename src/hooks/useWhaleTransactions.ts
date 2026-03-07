@@ -785,25 +785,29 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
       ws.onmessage = (event) => {
         try {
           const raw = JSON.parse(event.data);
-          const trade = config.parseTrade(raw);
-          if (!trade) return;
+          const trades = config.parseTrades(raw);
+          if (trades.length === 0) return;
 
-          const { price, quantity, isSell, timestamp, coin } = trade;
-          const usdValue = price * quantity;
+          const now = Date.now();
+          for (const trade of trades) {
+            const { price, quantity, isSell, timestamp, coin } = trade;
+            const usdValue = price * quantity;
 
-          // Track all coin prices
-          pricesRef.current[coin] = price;
-          if (coin === selectedCoinRef.current) {
-            setCurrentPrice(price);
-            priceRef.current = price;
+            // Track all coin prices
+            pricesRef.current[coin] = price;
+            if (coin === selectedCoinRef.current) {
+              setCurrentPrice(price);
+              priceRef.current = price;
+            }
+            monitorCountRef.current += 1;
+
+            volumeTradesRef.current.push({ timestamp: now, usdValue, isSell, exchange: config.name, coin });
+
+            tradeBufferRef.current.push({
+              price, quantity, usdValue, isSell,
+              exchange: config.name, timestamp, coin,
+            });
           }
-          monitorCountRef.current += 1;
-
-          volumeTradesRef.current.push({ timestamp: Date.now(), usdValue, isSell, exchange: config.name, coin });
-
-          tradeBufferRef.current.push({
-            price, quantity, usdValue, isSell,
-            exchange: config.name, timestamp, coin,
           });
         } catch (e) {
           console.error(`Parse error (${config.name}):`, e);
