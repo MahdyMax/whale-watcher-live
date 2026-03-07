@@ -206,17 +206,6 @@ const EXCHANGES: ExchangeConfig[] = [
       return [{ price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin }];
     },
   },
-    name: 'Binance Futures',
-    url: `wss://fstream.binance.com/stream?streams=${binanceFuturesStreams}`,
-    parseTrades: (raw) => {
-      if (!raw.stream || !raw.data) return [];
-      const sym = raw.stream.replace('@aggTrade', '');
-      const coin = binanceToSymbol[sym];
-      if (!coin) return [];
-      const d = raw.data;
-      return [{ price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin }];
-    },
-  },
   {
     name: 'Bybit',
     url: 'wss://stream.bybit.com/v5/public/spot',
