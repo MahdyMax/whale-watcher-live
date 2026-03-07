@@ -147,11 +147,13 @@ const okxCtVals: Record<string, { ctVal: number; ctValCcy: string }> = {};
 
 /* ── Exchange Configs ── */
 
+interface ParsedTrade { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number; coin: string }
+
 interface ExchangeConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number; coin: string } | null;
+  parseTrades: (data: any) => ParsedTrade[];
 }
 
 interface LiquidationConfig {
@@ -183,25 +185,25 @@ const EXCHANGES: ExchangeConfig[] = [
   {
     name: 'Binance',
     url: `wss://stream.binance.com:9443/stream?streams=${binanceSpotStreams}`,
-    parseTrade: (raw) => {
-      if (!raw.stream || !raw.data) return null;
+    parseTrades: (raw) => {
+      if (!raw.stream || !raw.data) return [];
       const sym = raw.stream.replace('@aggTrade', '');
       const coin = binanceToSymbol[sym];
-      if (!coin) return null;
+      if (!coin) return [];
       const d = raw.data;
-      return { price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin };
+      return [{ price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin }];
     },
   },
   {
     name: 'Binance Futures',
     url: `wss://fstream.binance.com/stream?streams=${binanceFuturesStreams}`,
-    parseTrade: (raw) => {
-      if (!raw.stream || !raw.data) return null;
+    parseTrades: (raw) => {
+      if (!raw.stream || !raw.data) return [];
       const sym = raw.stream.replace('@aggTrade', '');
       const coin = binanceToSymbol[sym];
-      if (!coin) return null;
+      if (!coin) return [];
       const d = raw.data;
-      return { price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin };
+      return [{ price: parseFloat(d.p), quantity: parseFloat(d.q), isSell: d.m, tradeId: `${d.a}`, timestamp: d.T, coin }];
     },
   },
   {
@@ -210,13 +212,14 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: bybitSpotArgs }));
     },
-    parseTrade: (raw) => {
-      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return null;
+    parseTrades: (raw) => {
+      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return [];
       const pairSym = raw.topic.replace('publicTrade.', '');
       const coin = bybitToSymbol[pairSym];
-      if (!coin) return null;
-      const d = raw.data[0];
-      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin };
+      if (!coin) return [];
+      return raw.data.map((d: any) => ({
+        price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin,
+      }));
     },
   },
   {
@@ -225,13 +228,14 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: bybitFuturesArgs }));
     },
-    parseTrade: (raw) => {
-      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return null;
+    parseTrades: (raw) => {
+      if (!raw.topic?.startsWith('publicTrade.') || !raw.data?.length) return [];
       const pairSym = raw.topic.replace('publicTrade.', '');
       const coin = bybitToSymbol[pairSym];
-      if (!coin) return null;
-      const d = raw.data[0];
-      return { price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin };
+      if (!coin) return [];
+      return raw.data.map((d: any) => ({
+        price: parseFloat(d.p), quantity: parseFloat(d.v), isSell: d.S === 'Sell', tradeId: d.i, timestamp: d.T, coin,
+      }));
     },
   },
   {
@@ -244,21 +248,25 @@ const EXCHANGES: ExchangeConfig[] = [
         channel: 'market_trades',
       }));
     },
-    parseTrade: (raw) => {
-      if (raw.channel !== 'market_trades' || !raw.events?.length) return null;
-      const evt = raw.events[0];
-      if (!evt.trades?.length) return null;
-      const t = evt.trades[0];
-      const coin = coinbaseToSymbol[t.product_id];
-      if (!coin) return null;
-      return {
-        price: parseFloat(t.price),
-        quantity: parseFloat(t.size),
-        isSell: t.side === 'SELL',
-        tradeId: t.trade_id,
-        timestamp: new Date(t.time).getTime(),
-        coin,
-      };
+    parseTrades: (raw) => {
+      if (raw.channel !== 'market_trades' || !raw.events?.length) return [];
+      const results: ParsedTrade[] = [];
+      for (const evt of raw.events) {
+        if (!evt.trades?.length) continue;
+        for (const t of evt.trades) {
+          const coin = coinbaseToSymbol[t.product_id];
+          if (!coin) continue;
+          results.push({
+            price: parseFloat(t.price),
+            quantity: parseFloat(t.size),
+            isSell: t.side === 'SELL',
+            tradeId: t.trade_id,
+            timestamp: new Date(t.time).getTime(),
+            coin,
+          });
+        }
+      }
+      return results;
     },
   },
   {
@@ -267,19 +275,18 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: okxSpotArgs }));
     },
-    parseTrade: (raw) => {
-      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+    parseTrades: (raw) => {
+      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return [];
       const coin = okxSpotToSymbol[raw.arg.instId];
-      if (!coin) return null;
-      const d = raw.data[0];
-      return {
+      if (!coin) return [];
+      return raw.data.map((d: any) => ({
         price: parseFloat(d.px),
         quantity: parseFloat(d.sz),
         isSell: d.side === 'sell',
         tradeId: d.tradeId,
         timestamp: parseInt(d.ts),
         coin,
-      };
+      }));
     },
   },
   {
@@ -288,26 +295,27 @@ const EXCHANGES: ExchangeConfig[] = [
     onOpen: (ws) => {
       ws.send(JSON.stringify({ op: 'subscribe', args: okxFuturesArgs }));
     },
-    parseTrade: (raw) => {
-      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return null;
+    parseTrades: (raw) => {
+      if (raw.arg?.channel !== 'trades' || !raw.data?.length) return [];
       const instId = raw.arg.instId;
       const coin = okxSwapToSymbol[instId];
-      if (!coin) return null;
-      const d = raw.data[0];
-      const rawSz = parseFloat(d.sz);
-      const price = parseFloat(d.px);
+      if (!coin) return [];
       const ctInfo = okxCtVals[instId];
-      if (!ctInfo) return null;
-      const quantity = ctInfo.ctValCcy !== 'USDT'
-        ? rawSz * ctInfo.ctVal
-        : (price > 0 ? (rawSz * ctInfo.ctVal) / price : 0);
-      return {
-        price, quantity,
-        isSell: d.side === 'sell',
-        tradeId: d.tradeId,
-        timestamp: parseInt(d.ts),
-        coin,
-      };
+      if (!ctInfo) return [];
+      return raw.data.map((d: any) => {
+        const rawSz = parseFloat(d.sz);
+        const price = parseFloat(d.px);
+        const quantity = ctInfo.ctValCcy !== 'USDT'
+          ? rawSz * ctInfo.ctVal
+          : (price > 0 ? (rawSz * ctInfo.ctVal) / price : 0);
+        return {
+          price, quantity,
+          isSell: d.side === 'sell',
+          tradeId: d.tradeId,
+          timestamp: parseInt(d.ts),
+          coin,
+        };
+      });
     },
   },
 ];
@@ -777,26 +785,29 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
       ws.onmessage = (event) => {
         try {
           const raw = JSON.parse(event.data);
-          const trade = config.parseTrade(raw);
-          if (!trade) return;
+          const trades = config.parseTrades(raw);
+          if (trades.length === 0) return;
 
-          const { price, quantity, isSell, timestamp, coin } = trade;
-          const usdValue = price * quantity;
+          const now = Date.now();
+          for (const trade of trades) {
+            const { price, quantity, isSell, timestamp, coin } = trade;
+            const usdValue = price * quantity;
 
-          // Track all coin prices
-          pricesRef.current[coin] = price;
-          if (coin === selectedCoinRef.current) {
-            setCurrentPrice(price);
-            priceRef.current = price;
+            // Track all coin prices
+            pricesRef.current[coin] = price;
+            if (coin === selectedCoinRef.current) {
+              setCurrentPrice(price);
+              priceRef.current = price;
+            }
+            monitorCountRef.current += 1;
+
+            volumeTradesRef.current.push({ timestamp: now, usdValue, isSell, exchange: config.name, coin });
+
+            tradeBufferRef.current.push({
+              price, quantity, usdValue, isSell,
+              exchange: config.name, timestamp, coin,
+            });
           }
-          monitorCountRef.current += 1;
-
-          volumeTradesRef.current.push({ timestamp: Date.now(), usdValue, isSell, exchange: config.name, coin });
-
-          tradeBufferRef.current.push({
-            price, quantity, usdValue, isSell,
-            exchange: config.name, timestamp, coin,
-          });
         } catch (e) {
           console.error(`Parse error (${config.name}):`, e);
         }
