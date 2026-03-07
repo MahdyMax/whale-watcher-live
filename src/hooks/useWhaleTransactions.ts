@@ -147,11 +147,13 @@ const okxCtVals: Record<string, { ctVal: number; ctValCcy: string }> = {};
 
 /* ── Exchange Configs ── */
 
+interface ParsedTrade { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number; coin: string }
+
 interface ExchangeConfig {
   name: string;
   url: string;
   onOpen?: (ws: WebSocket) => void;
-  parseTrade: (data: any) => { price: number; quantity: number; isSell: boolean; tradeId: string; timestamp: number; coin: string } | null;
+  parseTrades: (data: any) => ParsedTrade[];
 }
 
 interface LiquidationConfig {
