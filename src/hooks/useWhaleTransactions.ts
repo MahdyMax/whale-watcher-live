@@ -1,5 +1,5 @@
 // Multi-Coin Whale Tracker - Multi-exchange real-time WebSocket hook v6
-// Supports: BTC, ETH, XRP, BNB, SOL, ADA, DOGE, TRX, TON, AVAX
+// Supports: BTC, ETH, SOL
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ── Coin Configuration ── */
@@ -16,18 +16,11 @@ export interface CoinDef {
 export const COINS: CoinDef[] = [
   { symbol: 'BTC', binance: 'btcusdt', bybit: 'BTCUSDT', coinbase: 'BTC-USD', okxSpot: 'BTC-USDT', okxSwap: 'BTC-USDT-SWAP' },
   { symbol: 'ETH', binance: 'ethusdt', bybit: 'ETHUSDT', coinbase: 'ETH-USD', okxSpot: 'ETH-USDT', okxSwap: 'ETH-USDT-SWAP' },
-  { symbol: 'XRP', binance: 'xrpusdt', bybit: 'XRPUSDT', coinbase: 'XRP-USD', okxSpot: 'XRP-USDT', okxSwap: 'XRP-USDT-SWAP' },
-  { symbol: 'BNB', binance: 'bnbusdt', bybit: 'BNBUSDT', coinbase: null, okxSpot: 'BNB-USDT', okxSwap: 'BNB-USDT-SWAP' },
   { symbol: 'SOL', binance: 'solusdt', bybit: 'SOLUSDT', coinbase: 'SOL-USD', okxSpot: 'SOL-USDT', okxSwap: 'SOL-USDT-SWAP' },
-  { symbol: 'ADA', binance: 'adausdt', bybit: 'ADAUSDT', coinbase: 'ADA-USD', okxSpot: 'ADA-USDT', okxSwap: 'ADA-USDT-SWAP' },
-  { symbol: 'DOGE', binance: 'dogeusdt', bybit: 'DOGEUSDT', coinbase: 'DOGE-USD', okxSpot: 'DOGE-USDT', okxSwap: 'DOGE-USDT-SWAP' },
-  { symbol: 'TRX', binance: 'trxusdt', bybit: 'TRXUSDT', coinbase: null, okxSpot: 'TRX-USDT', okxSwap: 'TRX-USDT-SWAP' },
-  { symbol: 'TON', binance: 'tonusdt', bybit: 'TONUSDT', coinbase: null, okxSpot: 'TON-USDT', okxSwap: 'TON-USDT-SWAP' },
-  { symbol: 'AVAX', binance: 'avaxusdt', bybit: 'AVAXUSDT', coinbase: 'AVAX-USD', okxSpot: 'AVAX-USDT', okxSwap: 'AVAX-USDT-SWAP' },
 ];
 
 export const COIN_DECIMALS: Record<string, number> = {
-  BTC: 4, ETH: 3, XRP: 0, BNB: 2, SOL: 2, ADA: 0, DOGE: 0, TRX: 0, TON: 1, AVAX: 2,
+  BTC: 4, ETH: 3, SOL: 2,
 };
 
 // Lookup maps
