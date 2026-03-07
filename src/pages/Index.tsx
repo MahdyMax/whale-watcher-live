@@ -35,21 +35,23 @@ const Index = () => {
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
 
   const allTransactions = useMemo(() => {
-    let fresh: WhaleEvent[];
-
     if (tab === 'liquidations') {
-      fresh = liquidations.filter(tx => tx.coin === selectedCoin).slice(0, 100);
-    } else {
-      const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
-      fresh = events
-        .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
-        .slice(0, 25);
+      return liquidations.filter(tx => tx.coin === selectedCoin).slice(0, 100);
     }
 
-    if (fresh.length > 0) {
-      cachedRef.current[tab] = fresh;
-    }
-    return cachedRef.current[tab];
+    const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
+    const fresh = events
+      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
+      .slice(0, 25);
+
+    // Merge fresh into cache: prepend new items, keep up to 25 total
+    const prev = cachedRef.current[tab] || [];
+    const existingIds = new Set(fresh.map(t => t.id));
+    const kept = prev.filter(t => !existingIds.has(t.id));
+    const merged = [...fresh, ...kept].slice(0, 25);
+
+    cachedRef.current[tab] = merged;
+    return merged;
   }, [events, liquidations, tab, selectedCoin]);
 
   const tabs: { key: Tab; label: string }[] = [
