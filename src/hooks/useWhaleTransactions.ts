@@ -791,7 +791,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
           }
           monitorCountRef.current += 1;
 
-          volumeTradesRef.current.push({ timestamp, usdValue, isSell, exchange: config.name, coin });
+          volumeTradesRef.current.push({ timestamp: Date.now(), usdValue, isSell, exchange: config.name, coin });
 
           tradeBufferRef.current.push({
             price, quantity, usdValue, isSell,
