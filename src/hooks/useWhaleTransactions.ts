@@ -808,7 +808,6 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
               exchange: config.name, timestamp, coin,
             });
           }
-          });
         } catch (e) {
           console.error(`Parse error (${config.name}):`, e);
         }
