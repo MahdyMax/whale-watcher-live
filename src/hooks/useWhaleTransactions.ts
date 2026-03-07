@@ -105,8 +105,8 @@ export interface SpotFuturesDivergence {
 
 /* ── Constants ── */
 
-const DEFAULT_MIN_USD = 25_000;
-const TRADE_AGGREGATION_WINDOW = 1500;
+const DEFAULT_MIN_USD = 50_000;
+const TRADE_AGGREGATION_WINDOW = 500;
 const LIQ_AGGREGATION_WINDOW = 50;
 const VOLUME_WINDOW_1M = 60_000;
 const VOLUME_WINDOW_5M = 300_000;
@@ -519,40 +519,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
 
         if (newEvents.length > 0) {
           whaleTimestampsRef.current.push(Date.now());
-          setEvents((prev) => {
-            // Smart merge: if a new event matches an existing recent event
-            // (same type+exchange+coin within 5s), combine them instead of adding a duplicate
-            const merged = [...prev];
-            const toAdd: WhaleEvent[] = [];
-            for (const ne of newEvents) {
-              const recentIdx = merged.findIndex(
-                (e) =>
-                  e.type === ne.type &&
-                  e.exchange === ne.exchange &&
-                  e.coin === ne.coin &&
-                  Math.abs(ne.timestamp.getTime() - e.timestamp.getTime()) < 5000
-              );
-              if (recentIdx !== -1) {
-                // Merge into existing event
-                const existing = merged[recentIdx];
-                merged[recentIdx] = {
-                  ...existing,
-                  btcAmount: existing.btcAmount + ne.btcAmount,
-                  usdValue: existing.usdValue + ne.usdValue,
-                  pricePerBtc: (existing.usdValue + ne.usdValue) / (existing.btcAmount + ne.btcAmount),
-                  tradeCount: existing.tradeCount + ne.tradeCount,
-                  timestamp: ne.timestamp, // use latest timestamp
-                  isMega: (existing.usdValue + ne.usdValue) >= MEGA_THRESHOLD,
-                };
-                // Move merged item to front
-                const [item] = merged.splice(recentIdx, 1);
-                merged.unshift(item);
-              } else {
-                toAdd.push(ne);
-              }
-            }
-            return [...toAdd, ...merged].slice(0, MAX_TRADE_BUFFER);
-          });
+          setEvents((prev) => [...newEvents, ...prev].slice(0, MAX_TRADE_BUFFER));
         }
       }
 

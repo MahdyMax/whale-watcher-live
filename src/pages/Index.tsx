@@ -21,7 +21,7 @@ const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
 
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
-  const [minUsd, setMinUsd] = useState(25_000);
+  const [minUsd, setMinUsd] = useState(50_000);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [coinMenuOpen, setCoinMenuOpen] = useState(false);
