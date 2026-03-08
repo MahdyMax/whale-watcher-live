@@ -67,7 +67,7 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
 
         <div className="relative flex items-center gap-2 min-w-0">
           {isCluster && (
-            <Layers className="h-2.5 w-2.5 text-accent-foreground/60 shrink-0" title="Trade cluster detected" />
+            <span title="Trade cluster detected"><Layers className="h-2.5 w-2.5 text-accent-foreground/60 shrink-0" /></span>
           )}
           {isLiq ? (
             <Zap className={`h-3 w-3 ${colorClass} shrink-0`} />
