@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Header } from '@/components/whale/Header';
-import { TransactionCard } from '@/components/whale/TransactionCard';
+import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
 import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
 import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
@@ -8,6 +8,13 @@ import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
+import {
+  ExchangeFilterChips,
+  BuySellRatioCounter,
+  RunningTotalTicker,
+  TradeDirectionSummary,
+  useCopyTrade,
+} from '@/components/whale/FeedToolbar';
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
@@ -19,20 +26,58 @@ type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
 
+function getTimeHeader(ts: Date, now: Date): string {
+  const diff = (now.getTime() - ts.getTime()) / 1000;
+  if (diff < 30) return 'Just now';
+  if (diff < 60) return '30s ago';
+  if (diff < 120) return '1 min ago';
+  if (diff < 300) return '2-5 min ago';
+  return '5+ min ago';
+}
+
+function detectClusters(txs: WhaleEvent[]): Set<string> {
+  const clusterIds = new Set<string>();
+  for (let i = 0; i < txs.length - 1; i++) {
+    const curr = txs[i];
+    const next = txs[i + 1];
+    if (
+      curr.type === next.type &&
+      Math.abs(curr.timestamp.getTime() - next.timestamp.getTime()) < 5000
+    ) {
+      clusterIds.add(curr.id);
+      clusterIds.add(next.id);
+    }
+  }
+  return clusterIds;
+}
+
 const Index = () => {
   const [tab, setTab] = useState<Tab>('spot');
   const [minUsd, setMinUsd] = useState(50_000);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [coinMenuOpen, setCoinMenuOpen] = useState(false);
+  const [activeExchanges, setActiveExchanges] = useState<Set<string>>(
+    () => new Set([...SPOT_EXCHANGES, ...FUTURES_EXCHANGES])
+  );
 
   const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
     useWhaleTransactions(minUsd, selectedCoin);
 
-  // Sound alerts for whale trades
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
+  const { copiedId, copyTrade } = useCopyTrade();
+
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
+
+  const toggleExchange = useCallback((ex: string) => {
+    setActiveExchanges((prev) => {
+      const next = new Set(prev);
+      if (next.has(ex)) next.delete(ex);
+      else next.add(ex);
+      return next;
+    });
+  }, []);
 
   const allTransactions = useMemo(() => {
     if (tab === 'liquidations') {
@@ -41,25 +86,26 @@ const Index = () => {
 
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
     const fresh = events
-      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
+      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange) && activeExchanges.has(tx.exchange))
       .slice(0, 25);
 
-    // Merge fresh into cache: prepend new items, keep up to 25 total
     const prev = cachedRef.current[tab] || [];
     const existingIds = new Set(fresh.map(t => t.id));
-    const kept = prev.filter(t => !existingIds.has(t.id));
+    const kept = prev.filter(t => !existingIds.has(t.id) && activeExchanges.has(t.exchange));
     const merged = [...fresh, ...kept].slice(0, 25);
 
     cachedRef.current[tab] = merged;
     return merged;
-  }, [events, liquidations, tab, selectedCoin]);
+  }, [events, liquidations, tab, selectedCoin, activeExchanges]);
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'spot', label: 'Spot' },
-    { key: 'futures', label: 'Futures' },
-    { key: 'liquidations', label: 'Liquidations' },
-    { key: 'analytics', label: 'Analytics' },
-  ];
+  const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
+  const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
+
+  const currentExchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
+  const isTransactionTab = tab === 'spot' || tab === 'futures';
+
+  // Time grouping
+  const now = new Date();
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -68,6 +114,8 @@ const Index = () => {
         currentPrice={currentPrice}
         totalMonitored={totalMonitored}
         coinSymbol={selectedCoin}
+        tab={tab}
+        onTabChange={setTab}
       />
 
       {error && (
@@ -78,7 +126,6 @@ const Index = () => {
 
       {/* Coin selector + Threshold slider + sound toggle */}
       <div className="flex items-center border-b border-border">
-        {/* Coin Dropdown */}
         <div className="relative shrink-0">
           <button
             onClick={() => setCoinMenuOpen(o => !o)}
@@ -119,25 +166,6 @@ const Index = () => {
         </button>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition-colors ${
-              tab === t.key
-                ? t.key === 'liquidations'
-                  ? 'text-liquidation border-b-2 border-liquidation'
-                  : 'text-foreground border-b-2 border-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
           <div className="flex flex-col h-full">
@@ -150,43 +178,69 @@ const Index = () => {
             <SpeedMeter stats={speedStats} />
             <VolumeBar stats={volumeStats} />
           </div>
-        ) : allTransactions.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center space-y-3 text-muted-foreground">
-              <Radar className="h-8 w-8 mx-auto animate-pulse opacity-40" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  {tab === 'liquidations'
-                    ? `Scanning for ${selectedCoin} liquidation events`
-                    : `Scanning for ${selectedCoin} ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
-                </p>
-                <p className="text-xs opacity-60">
-                  Min threshold: ${minUsd.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
         ) : (
-          <div className="overflow-y-auto h-full scrollbar-thin">
-            <div className="space-y-1 p-3 sm:p-4">
-            {allTransactions.map((tx) => (
-              <TransactionCard
-                key={tx.id}
-                tx={tx}
-                labelOverride={
-                  tab === 'futures' && tx.type !== 'liquidation'
-                    ? tx.type === 'buy'
-                      ? 'long'
-                      : 'short'
-                    : tab === 'liquidations'
-                    ? tx.direction === 'long'
-                      ? 'LONG LIQ'
-                      : 'SHORT LIQ'
-                    : undefined
-                }
-              />
-            ))}
-            </div>
+          <div className="flex flex-col h-full">
+            {/* Feed toolbar features */}
+            {isTransactionTab && (
+              <>
+                <ExchangeFilterChips
+                  exchanges={currentExchanges}
+                  active={activeExchanges}
+                  onToggle={toggleExchange}
+                />
+                <BuySellRatioCounter volumeStats={volumeStats} />
+                <TradeDirectionSummary events={allTransactions} tab={tab} />
+                <RunningTotalTicker events={allTransactions} tab={tab} />
+              </>
+            )}
+
+            {allTransactions.length === 0 ? (
+              <div className="flex items-center justify-center flex-1">
+                <div className="text-center space-y-3 text-muted-foreground">
+                  <Radar className="h-8 w-8 mx-auto animate-pulse opacity-40" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">
+                      {tab === 'liquidations'
+                        ? `Scanning for ${selectedCoin} liquidation events`
+                        : `Scanning for ${selectedCoin} ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
+                    </p>
+                    <p className="text-xs opacity-60">
+                      Min threshold: ${minUsd.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 scrollbar-thin">
+                <div className="space-y-0 p-0">
+                  {allTransactions.map((tx, i) => {
+                    // Time grouping headers
+                    const timeGroup = getTimeHeader(tx.timestamp, now);
+                    const prevTimeGroup = i > 0 ? getTimeHeader(allTransactions[i - 1].timestamp, now) : null;
+                    const showHeader = isTransactionTab && timeGroup !== prevTimeGroup ? timeGroup : null;
+
+                    return (
+                      <EnhancedTransactionCard
+                        key={tx.id}
+                        tx={tx}
+                        maxUsd={maxUsd}
+                        copiedId={copiedId}
+                        onCopy={copyTrade}
+                        isCluster={clusterIds.has(tx.id)}
+                        showTimeHeader={showHeader}
+                        labelOverride={
+                          tab === 'futures' && tx.type !== 'liquidation'
+                            ? tx.type === 'buy' ? 'long' : 'short'
+                            : tab === 'liquidations'
+                            ? tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ'
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
