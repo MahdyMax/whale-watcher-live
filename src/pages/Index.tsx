@@ -1,13 +1,13 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
-import { VolumeBar } from '@/components/whale/VolumeBar';
-import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
 import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
 import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
+import { NetFlowChart } from '@/components/whale/NetFlowChart';
+import { VolumeChart } from '@/components/whale/VolumeChart';
 
 
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
@@ -53,6 +53,22 @@ const Index = () => {
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
+  const [netFlowHistory, setNetFlowHistory] = useState<{ time: string; value: number }[]>([]);
+  const [volumeHistory, setVolumeHistory] = useState<{ time: string; value: number }[]>([]);
+
+  useEffect(() => {
+    setNetFlowHistory([]);
+    setVolumeHistory([]);
+  }, [selectedCoin]);
+
+  useEffect(() => {
+    const time = new Date().toLocaleTimeString([], { minute: '2-digit', second: '2-digit' });
+    const nextNetFlow = volumeStats.spotNet5m + volumeStats.futuresNet5m;
+    const nextVolume = volumeStats.buy1m + volumeStats.sell1m;
+
+    setNetFlowHistory((prev) => [...prev.slice(-119), { time, value: nextNetFlow }]);
+    setVolumeHistory((prev) => [...prev.slice(-119), { time, value: nextVolume }]);
+  }, [volumeStats]);
 
   const allTransactions = useMemo(() => {
     if (tab === 'liquidations') {
@@ -140,15 +156,20 @@ const Index = () => {
 
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
-          <div className="flex flex-col h-full">
-            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-            <WhaleScoreCard score={whaleScore} />
-            <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
-            <div className="flex-1 min-h-0">
-              <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-2">
+            <div className="flex flex-col min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+              <NetFlowChart data={netFlowHistory} />
+              <div className="flex-1 min-h-0">
+                <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+              </div>
+              <SpeedMeter stats={speedStats} />
             </div>
-            <SpeedMeter stats={speedStats} />
-            <VolumeBar stats={volumeStats} />
+
+            <div className="flex flex-col min-h-0">
+              <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+              <WhaleScoreCard score={whaleScore} />
+              <VolumeChart data={volumeHistory} />
+            </div>
           </div>
         ) : (
           <div className="flex flex-col h-full">
@@ -177,7 +198,7 @@ const Index = () => {
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
                 <div className="space-y-0 p-0">
-                   {allTransactions.map((tx, i) => {
+                   {allTransactions.map((tx) => {
                     return (
                       <EnhancedTransactionCard
                         key={tx.id}
