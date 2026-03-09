@@ -661,6 +661,20 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
       const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
       setCvdHistory(prev => [...prev.slice(-119), { time: timeStr, cvd: cvdAccumRef.current, price: priceRef.current }]);
 
+      // Volume History (append points for charts)
+      setVolumeHistory(prev => ({
+        '1m': [...prev['1m'].slice(-119), { time: timeStr, buy: buy1m, sell: sell1m, net: buy1m - sell1m }],
+        '5m': [...prev['5m'].slice(-119), { time: timeStr, buy: buy5m, sell: sell5m, net: buy5m - sell5m }],
+        '15m': [...prev['15m'].slice(-119), { time: timeStr, buy: buy15m, sell: sell15m, net: buy15m - sell15m }],
+      }));
+
+      // Net Flow History (spot and futures)
+      setNetFlowHistory(prev => ({
+        '1m': [...prev['1m'].slice(-119), { time: timeStr, spot: spotBuy1m - spotSell1m, futures: futBuy1m - futSell1m }],
+        '5m': [...prev['5m'].slice(-119), { time: timeStr, spot: spotBuy5m - spotSell5m, futures: futBuy5m - futSell5m }],
+        '15m': [...prev['15m'].slice(-119), { time: timeStr, spot: spotBuy15m - spotSell15m, futures: futBuy15m - futSell15m }],
+      }));
+
       // Exchange Imbalance (Binance, Bybit, OKX — spot + futures combined)
       const exchMap1m = new Map<string, { buy: number; sell: number }>();
       const exchMap5m = new Map<string, { buy: number; sell: number }>();
