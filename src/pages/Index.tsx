@@ -53,6 +53,22 @@ const Index = () => {
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
+  const [netFlowHistory, setNetFlowHistory] = useState<{ time: string; value: number }[]>([]);
+  const [volumeHistory, setVolumeHistory] = useState<{ time: string; value: number }[]>([]);
+
+  useEffect(() => {
+    setNetFlowHistory([]);
+    setVolumeHistory([]);
+  }, [selectedCoin]);
+
+  useEffect(() => {
+    const time = new Date().toLocaleTimeString([], { minute: '2-digit', second: '2-digit' });
+    const nextNetFlow = volumeStats.spotNet5m + volumeStats.futuresNet5m;
+    const nextVolume = volumeStats.buy1m + volumeStats.sell1m;
+
+    setNetFlowHistory((prev) => [...prev.slice(-119), { time, value: nextNetFlow }]);
+    setVolumeHistory((prev) => [...prev.slice(-119), { time, value: nextVolume }]);
+  }, [volumeStats]);
 
   const allTransactions = useMemo(() => {
     if (tab === 'liquidations') {
