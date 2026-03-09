@@ -52,9 +52,7 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
         </div>
       )}
       <div
-        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b overflow-hidden cursor-pointer group`}
-        onClick={() => onCopy(tx)}
-        title="Click to copy"
+        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b overflow-hidden group`}
       >
         {/* Heatmap background bar */}
         <div
