@@ -101,7 +101,6 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
           <span className="text-muted-foreground text-[10px]">
             {tx.timestamp.toLocaleTimeString()}
           </span>
-          <CopyButton tx={tx} copiedId={copiedId} onCopy={onCopy} />
         </div>
       </div>
     </>
