@@ -53,16 +53,11 @@ const Index = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [coinMenuOpen, setCoinMenuOpen] = useState(false);
-  const [activeExchanges, setActiveExchanges] = useState<Set<string>>(
-    () => new Set([...SPOT_EXCHANGES, ...FUTURES_EXCHANGES])
-  );
 
   const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
     useWhaleTransactions(minUsd, selectedCoin);
 
   useWhaleSound([...events, ...liquidations], soundEnabled);
-
-  const { copiedId, copyTrade } = useCopyTrade();
 
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
 
