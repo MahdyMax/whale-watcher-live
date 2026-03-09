@@ -76,11 +76,8 @@ const Index = () => {
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
 
-  
-  const isTransactionTab = tab === 'spot' || tab === 'futures';
 
-  // Time grouping
-  const now = new Date();
+  const isTransactionTab = tab === 'spot' || tab === 'futures';
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
