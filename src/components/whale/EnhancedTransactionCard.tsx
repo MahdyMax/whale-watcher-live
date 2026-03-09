@@ -9,7 +9,6 @@ interface Props {
   labelOverride?: string;
   maxUsd: number;
   isCluster?: boolean;
-  showTimeHeader?: string | null;
 }
 
 function estimatePriceImpact(usdValue: number): { pct: string; level: 'low' | 'mid' | 'high' } {
