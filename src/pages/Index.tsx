@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
@@ -9,11 +9,7 @@ import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
 import {
-  ExchangeFilterChips,
-  BuySellRatioCounter,
-  RunningTotalTicker,
   TradeDirectionSummary,
-  useCopyTrade,
 } from '@/components/whale/FeedToolbar';
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
@@ -57,27 +53,13 @@ const Index = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [coinMenuOpen, setCoinMenuOpen] = useState(false);
-  const [activeExchanges, setActiveExchanges] = useState<Set<string>>(
-    () => new Set([...SPOT_EXCHANGES, ...FUTURES_EXCHANGES])
-  );
 
   const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
     useWhaleTransactions(minUsd, selectedCoin);
 
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
-  const { copiedId, copyTrade } = useCopyTrade();
-
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
-
-  const toggleExchange = useCallback((ex: string) => {
-    setActiveExchanges((prev) => {
-      const next = new Set(prev);
-      if (next.has(ex)) next.delete(ex);
-      else next.add(ex);
-      return next;
-    });
-  }, []);
 
   const allTransactions = useMemo(() => {
     if (tab === 'liquidations') {
@@ -86,22 +68,22 @@ const Index = () => {
 
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
     const fresh = events
-      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange) && activeExchanges.has(tx.exchange))
+      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
       .slice(0, 25);
 
     const prev = cachedRef.current[tab] || [];
     const existingIds = new Set(fresh.map(t => t.id));
-    const kept = prev.filter(t => !existingIds.has(t.id) && activeExchanges.has(t.exchange));
+    const kept = prev.filter(t => !existingIds.has(t.id));
     const merged = [...fresh, ...kept].slice(0, 25);
 
     cachedRef.current[tab] = merged;
     return merged;
-  }, [events, liquidations, tab, selectedCoin, activeExchanges]);
+  }, [events, liquidations, tab, selectedCoin]);
 
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
 
-  const currentExchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
+  
   const isTransactionTab = tab === 'spot' || tab === 'futures';
 
   // Time grouping
@@ -183,14 +165,7 @@ const Index = () => {
             {/* Feed toolbar features */}
             {isTransactionTab && (
               <>
-                <ExchangeFilterChips
-                  exchanges={currentExchanges}
-                  active={activeExchanges}
-                  onToggle={toggleExchange}
-                />
-                <BuySellRatioCounter volumeStats={volumeStats} />
                 <TradeDirectionSummary events={allTransactions} tab={tab} />
-                <RunningTotalTicker events={allTransactions} tab={tab} />
               </>
             )}
 
@@ -224,8 +199,6 @@ const Index = () => {
                         key={tx.id}
                         tx={tx}
                         maxUsd={maxUsd}
-                        copiedId={copiedId}
-                        onCopy={copyTrade}
                         isCluster={clusterIds.has(tx.id)}
                         showTimeHeader={showHeader}
                         labelOverride={

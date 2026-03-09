@@ -3,14 +3,11 @@ import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 import { COIN_DECIMALS } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight, Zap, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import { ExchangeIcon } from './ExchangeIcon';
-import { CopyButton } from './FeedToolbar';
 
 interface Props {
   tx: WhaleEvent;
   labelOverride?: string;
   maxUsd: number;
-  copiedId: string | null;
-  onCopy: (tx: WhaleEvent) => void;
   isCluster?: boolean;
   showTimeHeader?: string | null;
 }
@@ -25,7 +22,7 @@ function estimatePriceImpact(usdValue: number): { pct: string; level: 'low' | 'm
 }
 
 export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
-  tx, labelOverride, maxUsd, copiedId, onCopy, isCluster, showTimeHeader,
+  tx, labelOverride, maxUsd, isCluster, showTimeHeader,
 }: Props) {
   const isBuy = tx.type === 'buy';
   const isLiq = tx.type === 'liquidation';
@@ -55,9 +52,7 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
         </div>
       )}
       <div
-        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b overflow-hidden cursor-pointer group`}
-        onClick={() => onCopy(tx)}
-        title="Click to copy"
+        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b overflow-hidden group`}
       >
         {/* Heatmap background bar */}
         <div
@@ -106,7 +101,6 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
           <span className="text-muted-foreground text-[10px]">
             {tx.timestamp.toLocaleTimeString()}
           </span>
-          <CopyButton tx={tx} copiedId={copiedId} onCopy={onCopy} />
         </div>
       </div>
     </>
