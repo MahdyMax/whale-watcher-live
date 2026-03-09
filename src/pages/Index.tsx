@@ -61,15 +61,6 @@ const Index = () => {
 
   const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
 
-  const toggleExchange = useCallback((ex: string) => {
-    setActiveExchanges((prev) => {
-      const next = new Set(prev);
-      if (next.has(ex)) next.delete(ex);
-      else next.add(ex);
-      return next;
-    });
-  }, []);
-
   const allTransactions = useMemo(() => {
     if (tab === 'liquidations') {
       return liquidations.filter(tx => tx.coin === selectedCoin).slice(0, 100);
