@@ -9,11 +9,7 @@ import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
 import {
-  ExchangeFilterChips,
-  BuySellRatioCounter,
-  RunningTotalTicker,
   TradeDirectionSummary,
-  useCopyTrade,
 } from '@/components/whale/FeedToolbar';
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
