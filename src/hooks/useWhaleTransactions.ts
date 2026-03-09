@@ -938,7 +938,7 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
 
   return {
     events, liquidations, isConnected, error, currentPrice, totalMonitored,
-    volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore,
+    volumeStats, cvdHistory, volumeHistory, netFlowHistory, exchangeImbalances, speedStats, whaleScore,
     divergence, resetCvd,
   };
 }
