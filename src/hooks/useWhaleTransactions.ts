@@ -448,6 +448,8 @@ export function useWhaleTransactions(minUsd: number = DEFAULT_MIN_USD, selectedC
     volumeAnomalyRatio: 1,
   });
   const [cvdHistory, setCvdHistory] = useState<CvdPoint[]>([]);
+  const [volumeHistory, setVolumeHistory] = useState<{ '1m': VolumePoint[]; '5m': VolumePoint[]; '15m': VolumePoint[] }>({ '1m': [], '5m': [], '15m': [] });
+  const [netFlowHistory, setNetFlowHistory] = useState<{ '1m': NetFlowPoint[]; '5m': NetFlowPoint[]; '15m': NetFlowPoint[] }>({ '1m': [], '5m': [], '15m': [] });
   const [exchangeImbalances, setExchangeImbalances] = useState<ExchangeImbalance[]>([]);
   const [speedStats, setSpeedStats] = useState<SpeedStats>({
     tradesPerSec: 0, volumePerSec: 0, whalesPerMin: 0, liqsPerMin: 0,
