@@ -199,8 +199,6 @@ const Index = () => {
                         key={tx.id}
                         tx={tx}
                         maxUsd={maxUsd}
-                        copiedId={copiedId}
-                        onCopy={copyTrade}
                         isCluster={clusterIds.has(tx.id)}
                         showTimeHeader={showHeader}
                         labelOverride={
