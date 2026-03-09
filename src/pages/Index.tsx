@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
