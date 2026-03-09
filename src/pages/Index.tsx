@@ -156,15 +156,20 @@ const Index = () => {
 
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
-          <div className="flex flex-col h-full">
-            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-            <WhaleScoreCard score={whaleScore} />
-            <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
-            <div className="flex-1 min-h-0">
-              <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-2">
+            <div className="flex flex-col min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+              <NetFlowChart data={netFlowHistory} />
+              <div className="flex-1 min-h-0">
+                <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+              </div>
+              <SpeedMeter stats={speedStats} />
             </div>
-            <SpeedMeter stats={speedStats} />
-            <VolumeBar stats={volumeStats} />
+
+            <div className="flex flex-col min-h-0">
+              <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+              <WhaleScoreCard score={whaleScore} />
+              <VolumeChart data={volumeHistory} />
+            </div>
           </div>
         ) : (
           <div className="flex flex-col h-full">
@@ -193,7 +198,7 @@ const Index = () => {
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
                 <div className="space-y-0 p-0">
-                   {allTransactions.map((tx, i) => {
+                   {allTransactions.map((tx) => {
                     return (
                       <EnhancedTransactionCard
                         key={tx.id}
