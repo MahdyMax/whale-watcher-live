@@ -3,14 +3,11 @@ import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 import { COIN_DECIMALS } from '@/hooks/useWhaleTransactions';
 import { ArrowUpRight, ArrowDownRight, Zap, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import { ExchangeIcon } from './ExchangeIcon';
-import { CopyButton } from './FeedToolbar';
 
 interface Props {
   tx: WhaleEvent;
   labelOverride?: string;
   maxUsd: number;
-  copiedId: string | null;
-  onCopy: (tx: WhaleEvent) => void;
   isCluster?: boolean;
   showTimeHeader?: string | null;
 }
