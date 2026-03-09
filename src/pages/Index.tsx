@@ -180,19 +180,13 @@ const Index = () => {
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
                 <div className="space-y-0 p-0">
-                  {allTransactions.map((tx, i) => {
-                    // Time grouping headers
-                    const timeGroup = getTimeHeader(tx.timestamp, now);
-                    const prevTimeGroup = i > 0 ? getTimeHeader(allTransactions[i - 1].timestamp, now) : null;
-                    const showHeader = isTransactionTab && timeGroup !== prevTimeGroup ? timeGroup : null;
-
+                   {allTransactions.map((tx, i) => {
                     return (
                       <EnhancedTransactionCard
                         key={tx.id}
                         tx={tx}
                         maxUsd={maxUsd}
                         isCluster={clusterIds.has(tx.id)}
-                        showTimeHeader={showHeader}
                         labelOverride={
                           tab === 'futures' && tx.type !== 'liquidation'
                             ? tx.type === 'buy' ? 'long' : 'short'
