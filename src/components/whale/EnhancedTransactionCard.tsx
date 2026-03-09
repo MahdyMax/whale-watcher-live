@@ -21,7 +21,7 @@ function estimatePriceImpact(usdValue: number): { pct: string; level: 'low' | 'm
 }
 
 export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
-  tx, labelOverride, maxUsd, isCluster, showTimeHeader,
+  tx, labelOverride, maxUsd, isCluster,
 }: Props) {
   const isBuy = tx.type === 'buy';
   const isLiq = tx.type === 'liquidation';
