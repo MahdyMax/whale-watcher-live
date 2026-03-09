@@ -98,4 +98,3 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
       </div>
     );
   });
-}
