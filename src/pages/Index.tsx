@@ -1,13 +1,12 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
-import { VolumeBar } from '@/components/whale/VolumeBar';
-import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
-import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
 import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
+import { NetFlowChart } from '@/components/whale/NetFlowChart';
+import { VolumeChart } from '@/components/whale/VolumeChart';
 
 
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
