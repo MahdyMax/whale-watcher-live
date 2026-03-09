@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
+import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
 import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
