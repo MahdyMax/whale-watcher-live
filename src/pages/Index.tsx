@@ -164,7 +164,6 @@ const Index = () => {
             {/* Feed toolbar features */}
             {isTransactionTab && (
               <>
-                <TradeDirectionSummary events={allTransactions} tab={tab} />
               </>
             )}
 
