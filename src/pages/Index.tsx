@@ -2,13 +2,15 @@ import { useState, useMemo, useRef } from 'react';
 import { Header } from '@/components/whale/Header';
 import { EnhancedTransactionCard } from '@/components/whale/EnhancedTransactionCard';
 import { VolumeBar } from '@/components/whale/VolumeBar';
+import { VolumeChart } from '@/components/whale/VolumeChart';
 import { NetFlowIndicator } from '@/components/whale/NetFlowIndicator';
+import { NetFlowChart } from '@/components/whale/NetFlowChart';
 import { ThresholdSlider } from '@/components/whale/ThresholdSlider';
 import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
-
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
@@ -20,9 +22,6 @@ type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 
 const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
-
-
-
 
 function detectClusters(txs: WhaleEvent[]): Set<string> {
   const clusterIds = new Set<string>();
@@ -46,8 +45,9 @@ const Index = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState('BTC');
   const [coinMenuOpen, setCoinMenuOpen] = useState(false);
+  const isMobile = useIsMobile();
 
-  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
+  const { events, liquidations, isConnected, error, currentPrice, totalMonitored, volumeStats, cvdHistory, volumeHistory, netFlowHistory, exchangeImbalances, speedStats, whaleScore, divergence, resetCvd } =
     useWhaleTransactions(minUsd, selectedCoin);
 
   useWhaleSound([...events, ...liquidations], soundEnabled);
@@ -75,7 +75,6 @@ const Index = () => {
 
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
-
 
   const isTransactionTab = tab === 'spot' || tab === 'futures';
 
@@ -140,16 +139,48 @@ const Index = () => {
 
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
-          <div className="flex flex-col h-full">
-            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-            <WhaleScoreCard score={whaleScore} />
-            <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
-            <div className="flex-1 min-h-0">
-              <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+          isMobile ? (
+            // Mobile: vertical layout (current)
+            <div className="flex flex-col h-full overflow-y-auto">
+              <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+              <WhaleScoreCard score={whaleScore} />
+              <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
+              <div className="flex-1 min-h-0">
+                <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+              </div>
+              <SpeedMeter stats={speedStats} />
+              <VolumeBar stats={volumeStats} />
             </div>
-            <SpeedMeter stats={speedStats} />
-            <VolumeBar stats={volumeStats} />
-          </div>
+          ) : (
+            // Desktop: two-column layout
+            <div className="flex h-full">
+              {/* Left column: Net Flow, CVD, Speed */}
+              <div className="flex-1 flex flex-col border-r border-border min-w-0">
+                <div className="flex-[2] min-h-0 border-b border-border">
+                  <NetFlowChart history={netFlowHistory} divergence={divergence} fill />
+                </div>
+                <div className="flex-[3] min-h-0 border-b border-border">
+                  <CvdChart data={cvdHistory} fill onReset={resetCvd} />
+                </div>
+                <div className="shrink-0">
+                  <SpeedMeter stats={speedStats} />
+                </div>
+              </div>
+
+              {/* Right column: Exchange Imbalance, Whale Score, Volume */}
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="shrink-0 border-b border-border">
+                  <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+                </div>
+                <div className="shrink-0 border-b border-border">
+                  <WhaleScoreCard score={whaleScore} />
+                </div>
+                <div className="flex-1 min-h-0">
+                  <VolumeChart history={volumeHistory} stats={volumeStats} fill />
+                </div>
+              </div>
+            </div>
+          )
         ) : (
           <div className="flex flex-col h-full">
             {/* Feed toolbar features */}
@@ -177,7 +208,7 @@ const Index = () => {
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
                 <div className="space-y-0 p-0">
-                   {allTransactions.map((tx, i) => {
+                   {allTransactions.map((tx) => {
                     return (
                       <EnhancedTransactionCard
                         key={tx.id}
