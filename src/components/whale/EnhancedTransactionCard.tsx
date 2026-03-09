@@ -44,13 +44,7 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
   const impactColor = impact.level === 'high' ? colorClass : impact.level === 'mid' ? 'text-muted-foreground' : 'text-muted-foreground/50';
 
   return (
-    <>
-      {showTimeHeader && (
-        <div className="px-3 py-1 text-[9px] text-muted-foreground/60 uppercase tracking-widest font-mono border-b border-border/50 bg-muted/30">
-          {showTimeHeader}
-        </div>
-      )}
-      <div
+    <div
         className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in ${bgClass} border-b overflow-hidden group`}
       >
         {/* Heatmap background bar */}
