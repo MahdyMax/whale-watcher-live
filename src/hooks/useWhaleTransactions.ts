@@ -103,6 +103,19 @@ export interface SpotFuturesDivergence {
   magnitude: number;
 }
 
+export interface VolumePoint {
+  time: string;
+  buy: number;
+  sell: number;
+  net: number;
+}
+
+export interface NetFlowPoint {
+  time: string;
+  spot: number;
+  futures: number;
+}
+
 /* ── Constants ── */
 
 const DEFAULT_MIN_USD = 50_000;
