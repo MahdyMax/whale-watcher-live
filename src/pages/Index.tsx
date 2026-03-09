@@ -68,17 +68,17 @@ const Index = () => {
 
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
     const fresh = events
-      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange) && activeExchanges.has(tx.exchange))
+      .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
       .slice(0, 25);
 
     const prev = cachedRef.current[tab] || [];
     const existingIds = new Set(fresh.map(t => t.id));
-    const kept = prev.filter(t => !existingIds.has(t.id) && activeExchanges.has(t.exchange));
+    const kept = prev.filter(t => !existingIds.has(t.id));
     const merged = [...fresh, ...kept].slice(0, 25);
 
     cachedRef.current[tab] = merged;
     return merged;
-  }, [events, liquidations, tab, selectedCoin, activeExchanges]);
+  }, [events, liquidations, tab, selectedCoin]);
 
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
