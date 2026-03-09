@@ -165,14 +165,7 @@ const Index = () => {
             {/* Feed toolbar features */}
             {isTransactionTab && (
               <>
-                <ExchangeFilterChips
-                  exchanges={currentExchanges}
-                  active={activeExchanges}
-                  onToggle={toggleExchange}
-                />
-                <BuySellRatioCounter volumeStats={volumeStats} />
                 <TradeDirectionSummary events={allTransactions} tab={tab} />
-                <RunningTotalTicker events={allTransactions} tab={tab} />
               </>
             )}
 
