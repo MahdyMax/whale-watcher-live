@@ -40,7 +40,7 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
 
   return (
     <div
-        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in border-b overflow-hidden group`}
+        className={`relative flex items-center justify-between px-3 py-2 rounded-none text-xs font-mono animate-fade-in overflow-hidden group`}
       >
         {/* Heatmap background bar */}
         <div
