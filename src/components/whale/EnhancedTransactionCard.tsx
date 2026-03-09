@@ -96,6 +96,6 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
           </span>
         </div>
       </div>
-    </>
-  );
-});
+    );
+  });
+}
