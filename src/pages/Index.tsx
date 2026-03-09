@@ -83,7 +83,7 @@ const Index = () => {
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
 
-  const currentExchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
+  
   const isTransactionTab = tab === 'spot' || tab === 'futures';
 
   // Time grouping
