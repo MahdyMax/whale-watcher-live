@@ -21,14 +21,8 @@ type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
 
-function getTimeHeader(ts: Date, now: Date): string {
-  const diff = (now.getTime() - ts.getTime()) / 1000;
-  if (diff < 30) return 'Just now';
-  if (diff < 60) return '30s ago';
-  if (diff < 120) return '1 min ago';
-  if (diff < 300) return '2-5 min ago';
-  return '5+ min ago';
-}
+
+
 
 function detectClusters(txs: WhaleEvent[]): Set<string> {
   const clusterIds = new Set<string>();
