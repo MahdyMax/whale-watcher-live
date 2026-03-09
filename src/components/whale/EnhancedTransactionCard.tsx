@@ -29,11 +29,6 @@ export const EnhancedTransactionCard = memo(function EnhancedTransactionCard({
   const label = labelOverride ?? (isLiq ? (tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ') : tx.type);
 
   const colorClass = isMega ? 'text-mega' : isLiq ? 'text-liquidation' : isBuy ? 'text-buy' : 'text-sell';
-  const bgClass = isMega
-    ? 'bg-mega-muted border-mega/20'
-    : isLiq ? 'bg-liquidation-muted border-liquidation/15'
-    : isBuy ? 'bg-buy-muted border-buy/15'
-    : 'bg-sell-muted border-sell/15';
 
   // Heatmap bar width (relative to max in the feed)
   const heatPct = maxUsd > 0 ? Math.min((tx.usdValue / maxUsd) * 100, 100) : 0;
