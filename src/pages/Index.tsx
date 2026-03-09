@@ -177,24 +177,40 @@ const Index = () => {
               </div>
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
-                <div className="space-y-0 p-0">
-                   {allTransactions.map((tx, i) => {
-                    return (
-                      <EnhancedTransactionCard
-                        key={tx.id}
-                        tx={tx}
-                        maxUsd={maxUsd}
-                        isCluster={clusterIds.has(tx.id)}
-                        labelOverride={
-                          tab === 'futures' && tx.type !== 'liquidation'
-                            ? tx.type === 'buy' ? 'long' : 'short'
-                            : tab === 'liquidations'
-                            ? tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ'
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
+                <div className="space-y-0 p-0 flex flex-col">
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {allTransactions.map((tx, i) => {
+                      return (
+                        <motion.div
+                          key={tx.id}
+                          layout
+                          initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 40,
+                            mass: 1
+                          }}
+                          className="w-full origin-top"
+                        >
+                          <EnhancedTransactionCard
+                            tx={tx}
+                            maxUsd={maxUsd}
+                            isCluster={clusterIds.has(tx.id)}
+                            labelOverride={
+                              tab === 'futures' && tx.type !== 'liquidation'
+                                ? tx.type === 'buy' ? 'long' : 'short'
+                                : tab === 'liquidations'
+                                ? tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ'
+                                : undefined
+                            }
+                          />
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
                 </div>
               </div>
             )}
