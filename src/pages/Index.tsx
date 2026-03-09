@@ -8,9 +8,8 @@ import { CvdChart } from '@/components/whale/CvdChart';
 import { ExchangeImbalanceBar } from '@/components/whale/ExchangeImbalance';
 import { SpeedMeter } from '@/components/whale/SpeedMeter';
 import { WhaleScoreCard } from '@/components/whale/WhaleScoreCard';
-import {
-  TradeDirectionSummary,
-} from '@/components/whale/FeedToolbar';
+
+
 import { useWhaleTransactions, COINS } from '@/hooks/useWhaleTransactions';
 import { useWhaleSound } from '@/hooks/useWhaleSound';
 import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
@@ -22,14 +21,8 @@ type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
 const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
 
-function getTimeHeader(ts: Date, now: Date): string {
-  const diff = (now.getTime() - ts.getTime()) / 1000;
-  if (diff < 30) return 'Just now';
-  if (diff < 60) return '30s ago';
-  if (diff < 120) return '1 min ago';
-  if (diff < 300) return '2-5 min ago';
-  return '5+ min ago';
-}
+
+
 
 function detectClusters(txs: WhaleEvent[]): Set<string> {
   const clusterIds = new Set<string>();
@@ -83,11 +76,8 @@ const Index = () => {
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
 
-  
-  const isTransactionTab = tab === 'spot' || tab === 'futures';
 
-  // Time grouping
-  const now = new Date();
+  const isTransactionTab = tab === 'spot' || tab === 'futures';
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -165,7 +155,6 @@ const Index = () => {
             {/* Feed toolbar features */}
             {isTransactionTab && (
               <>
-                <TradeDirectionSummary events={allTransactions} tab={tab} />
               </>
             )}
 
@@ -188,19 +177,13 @@ const Index = () => {
             ) : (
               <div className="overflow-y-auto flex-1 scrollbar-thin">
                 <div className="space-y-0 p-0">
-                  {allTransactions.map((tx, i) => {
-                    // Time grouping headers
-                    const timeGroup = getTimeHeader(tx.timestamp, now);
-                    const prevTimeGroup = i > 0 ? getTimeHeader(allTransactions[i - 1].timestamp, now) : null;
-                    const showHeader = isTransactionTab && timeGroup !== prevTimeGroup ? timeGroup : null;
-
+                   {allTransactions.map((tx, i) => {
                     return (
                       <EnhancedTransactionCard
                         key={tx.id}
                         tx={tx}
                         maxUsd={maxUsd}
                         isCluster={clusterIds.has(tx.id)}
-                        showTimeHeader={showHeader}
                         labelOverride={
                           tab === 'futures' && tx.type !== 'liquidation'
                             ? tx.type === 'buy' ? 'long' : 'short'
