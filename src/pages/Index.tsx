@@ -139,48 +139,16 @@ const Index = () => {
 
       <main className="flex-1 overflow-hidden">
         {tab === 'analytics' ? (
-          isMobile ? (
-            // Mobile: vertical layout (current)
-            <div className="flex flex-col h-full overflow-y-auto">
-              <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-              <WhaleScoreCard score={whaleScore} />
-              <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
-              <div className="flex-1 min-h-0">
-                <CvdChart data={cvdHistory} fill onReset={resetCvd} />
-              </div>
-              <SpeedMeter stats={speedStats} />
-              <VolumeBar stats={volumeStats} />
+          <div className="flex flex-col h-full overflow-y-auto">
+            <ExchangeImbalanceBar imbalances={exchangeImbalances} />
+            <WhaleScoreCard score={whaleScore} />
+            <NetFlowIndicator volumeStats={volumeStats} divergence={divergence} />
+            <div className="flex-1 min-h-0">
+              <CvdChart data={cvdHistory} fill onReset={resetCvd} />
             </div>
-          ) : (
-            // Desktop: two-column layout
-            <div className="flex h-full">
-              {/* Left column: Net Flow, CVD, Speed */}
-              <div className="flex-1 flex flex-col border-r border-border min-w-0">
-                <div className="flex-[2] min-h-0 border-b border-border">
-                  <NetFlowChart history={netFlowHistory} divergence={divergence} fill />
-                </div>
-                <div className="flex-[3] min-h-0 border-b border-border">
-                  <CvdChart data={cvdHistory} fill onReset={resetCvd} />
-                </div>
-                <div className="shrink-0">
-                  <SpeedMeter stats={speedStats} />
-                </div>
-              </div>
-
-              {/* Right column: Exchange Imbalance, Whale Score, Volume */}
-              <div className="flex-1 flex flex-col min-w-0">
-                <div className="shrink-0 border-b border-border">
-                  <ExchangeImbalanceBar imbalances={exchangeImbalances} />
-                </div>
-                <div className="shrink-0 border-b border-border">
-                  <WhaleScoreCard score={whaleScore} />
-                </div>
-                <div className="flex-1 min-h-0">
-                  <VolumeChart history={volumeHistory} stats={volumeStats} fill />
-                </div>
-              </div>
-            </div>
-          )
+            <SpeedMeter stats={speedStats} />
+            <VolumeBar stats={volumeStats} />
+          </div>
         ) : (
           <div className="flex flex-col h-full">
             {/* Feed toolbar features */}
