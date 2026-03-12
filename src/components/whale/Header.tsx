@@ -78,7 +78,7 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
           <button
             key={t.key}
             onClick={() => onTabChange(t.key)}
-            className={`flex-1 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-colors text-center ${
+            className={`flex-1 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors text-center ${
               tab === t.key
                 ? t.key === 'liquidations'
                   ? 'text-liquidation bg-liquidation-muted'
