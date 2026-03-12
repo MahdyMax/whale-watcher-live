@@ -77,7 +77,7 @@ export function NetFlowChart({ history, divergence, fill = false }: NetFlowChart
       )}
 
       {/* Dual Charts */}
-      <div className={`flex flex-col gap-1 ${fill ? 'flex-1 min-h-0' : ''}`}>
+      <div className={`flex flex-row gap-1 mb-[20px] ${fill ? 'flex-1 min-h-0' : ''}`}>
         {/* Spot Chart */}
         <div className="flex-1 min-h-0">
           <div className="text-[9px] text-muted-foreground mb-0.5">SPOT</div>
@@ -132,6 +132,34 @@ export function NetFlowChart({ history, divergence, fill = false }: NetFlowChart
           </div>
         </div>
       </div>
+
+            {/* Values */}
+      <div className="flex items-center gap-4 text-[10px] font-mono mb-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">Spot:</span>
+          <span className={`font-semibold ${latestSpot >= 0 ? 'text-buy' : 'text-sell'}`}>
+            {latestSpot >= 0 ? '+' : '-'}{formatUsd(latestSpot)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">Futures:</span>
+          <span className={`font-semibold ${latestFutures >= 0 ? 'text-buy' : 'text-sell'}`}>
+            {latestFutures >= 0 ? '+' : '-'}{formatUsd(latestFutures)}
+          </span>
+        </div>
+      </div>
+
+      {/* Divergence Alert */}
+      {divergence.divergent && (
+        <div className="flex items-center gap-1.5 text-[10px] font-mono animate-pulse mb-1">
+          <AlertTriangle className="h-3 w-3 text-liquidation" />
+          <span className="text-liquidation font-semibold">
+            DIVERGENCE: Spot {divergence.spotBias.toUpperCase()} / Futures {divergence.futuresBias.toUpperCase()}
+          </span>
+          <span className="text-muted-foreground">({divergence.magnitude}%)</span>
+        </div>
+      )}
+
     </div>
   );
 }
