@@ -106,7 +106,9 @@ export function NetFlowChart({ history, divergence, fill = false }: NetFlowChart
         </div>
       </div>
 
-      {/* Values */}
+      <div className="flex flex-row gap-4">
+
+              {/* Values */}
       <div className="flex items-center gap-4 text-[10px] font-mono mb-1">
         <div className="flex items-center gap-1.5">
           <span className="text-muted-foreground">Spot:</span>
@@ -132,6 +134,10 @@ export function NetFlowChart({ history, divergence, fill = false }: NetFlowChart
           <span className="text-muted-foreground">({divergence.magnitude}%)</span>
         </div>
       )}
+
+      </div>
+
+
 
     </div>
   );
