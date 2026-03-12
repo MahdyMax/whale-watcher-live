@@ -65,9 +65,9 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
                 isConnected ? 'bg-buy animate-pulse' : 'bg-sell'
               }`}
             />
-            {/* <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {isConnected ? 'Live' : 'Offline'}
-            </span> */}
+            </span>
           </div>
         </div>
       </div>
