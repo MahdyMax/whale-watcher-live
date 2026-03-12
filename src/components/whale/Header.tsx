@@ -59,7 +59,7 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <div
               className={`h-2 w-2 rounded-full ${
                 isConnected ? 'bg-buy animate-pulse' : 'bg-sell'
@@ -68,7 +68,7 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {isConnected ? 'Live' : 'Offline'}
             </span>
-          </div>
+          </div> */}
         </div>
       </div>
 
