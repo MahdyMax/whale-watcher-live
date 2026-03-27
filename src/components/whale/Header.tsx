@@ -1,6 +1,6 @@
 import { Activity } from 'lucide-react';
 
-type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
+type Tab = 'spot' | 'futures' | 'analytics';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -14,7 +14,6 @@ interface HeaderProps {
 const tabs: { key: Tab; label: string }[] = [
   { key: 'spot', label: 'Spot' },
   { key: 'futures', label: 'Futures' },
-  { key: 'liquidations', label: 'Liq' },
   { key: 'analytics', label: 'Analytics' },
 ];
 
@@ -38,13 +37,11 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
               onClick={() => onTabChange(t.key)}
               className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
                 tab === t.key
-                  ? t.key === 'liquidations'
-                    ? 'text-liquidation bg-liquidation-muted'
-                    : 'text-foreground bg-muted'
+                  ? 'text-foreground bg-muted'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              {t.key === 'liquidations' ? 'Liquidations' : t.label}
+              {t.label}
             </button>
           ))}
         </nav>
@@ -80,9 +77,7 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
             onClick={() => onTabChange(t.key)}
             className={`flex-1 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors text-center ${
               tab === t.key
-                ? t.key === 'liquidations'
-                  ? 'text-liquidation bg-liquidation-muted'
-                  : 'text-foreground bg-muted'
+                ? 'text-foreground bg-muted'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}
           >
