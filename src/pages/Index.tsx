@@ -18,7 +18,7 @@ import type { WhaleEvent } from '@/hooks/useWhaleTransactions';
 
 import { Radar, Volume2, VolumeX, ChevronDown } from 'lucide-react';
 
-type Tab = 'spot' | 'futures' | 'liquidations' | 'analytics';
+type Tab = 'spot' | 'futures' | 'analytics';
 
 const SPOT_EXCHANGES = ['Binance', 'Bybit', 'Coinbase', 'OKX'];
 const FUTURES_EXCHANGES = ['Binance Futures', 'Bybit Futures', 'OKX Futures'];
@@ -52,13 +52,9 @@ const Index = () => {
 
   useWhaleSound([...events, ...liquidations], soundEnabled);
 
-  const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], liquidations: [], analytics: [] });
+  const cachedRef = useRef<Record<Tab, WhaleEvent[]>>({ spot: [], futures: [], analytics: [] });
 
   const allTransactions = useMemo(() => {
-    if (tab === 'liquidations') {
-      return liquidations.filter(tx => tx.coin === selectedCoin).slice(0, 100);
-    }
-
     const exchanges = tab === 'spot' ? SPOT_EXCHANGES : FUTURES_EXCHANGES;
     const fresh = events
       .filter((tx) => tx.coin === selectedCoin && exchanges.includes(tx.exchange))
@@ -71,12 +67,13 @@ const Index = () => {
 
     cachedRef.current[tab] = merged;
     return merged;
-  }, [events, liquidations, tab, selectedCoin]);
+  }, [events, tab, selectedCoin]);
 
   const maxUsd = useMemo(() => Math.max(...allTransactions.map(t => t.usdValue), 1), [allTransactions]);
   const clusterIds = useMemo(() => detectClusters(allTransactions), [allTransactions]);
 
   const isTransactionTab = tab === 'spot' || tab === 'futures';
+
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -112,7 +109,7 @@ const Index = () => {
                 {COINS.map(c => (
                   <button
                     key={c.symbol}
-                    onClick={() => { setSelectedCoin(c.symbol); setCoinMenuOpen(false); cachedRef.current = { spot: [], futures: [], liquidations: [], analytics: [] }; }}
+                    onClick={() => { setSelectedCoin(c.symbol); setCoinMenuOpen(false); cachedRef.current = { spot: [], futures: [], analytics: [] }; }}
                     className={`w-full text-left px-3 py-1.5 text-xs font-mono uppercase tracking-wider transition-colors ${
                       c.symbol === selectedCoin
                         ? 'text-buy bg-buy-muted'
@@ -163,9 +160,7 @@ const Index = () => {
                   <Radar className="h-8 w-8 mx-auto animate-pulse opacity-40" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      {tab === 'liquidations'
-                        ? `Scanning for ${selectedCoin} liquidation events`
-                        : `Scanning for ${selectedCoin} ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
+                      {`Scanning for ${selectedCoin} ${tab === 'spot' ? 'spot' : 'futures'} whale trades`}
                     </p>
                     <p className="text-xs opacity-60">
                       Min threshold: ${minUsd.toLocaleString()}
@@ -186,8 +181,6 @@ const Index = () => {
                         labelOverride={
                           tab === 'futures' && tx.type !== 'liquidation'
                             ? tx.type === 'buy' ? 'long' : 'short'
-                            : tab === 'liquidations'
-                            ? tx.direction === 'long' ? 'LONG LIQ' : 'SHORT LIQ'
                             : undefined
                         }
                       />
