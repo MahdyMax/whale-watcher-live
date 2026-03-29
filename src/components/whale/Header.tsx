@@ -24,7 +24,7 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
       <div className="flex items-center justify-between px-4 sm:px-6 py-2">
         <div className="flex items-center gap-2 shrink-0">
           <img src={hashLogo} alt="HASH logo" style={{ height: '25px' }} />
-          <h1 className="text-lg sm:text-xl tracking-tight" style={{ fontFamily: "'Jersey 10', cursive" }}>
+          <h1 style={{ fontFamily: "'Jersey 10', cursive", fontSize: '25px', letterSpacing: '0' }}>
             HASH
           </h1>
         </div>
