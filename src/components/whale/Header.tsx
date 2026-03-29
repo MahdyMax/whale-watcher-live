@@ -1,4 +1,4 @@
-import { Activity } from 'lucide-react';
+import hashLogo from '@/assets/hashlogo02.png';
 
 type Tab = 'spot' | 'futures' | 'analytics';
 
@@ -22,10 +22,10 @@ export function Header({ isConnected, currentPrice, totalMonitored, coinSymbol =
     <header className="border-b border-border">
       {/* Top row: Logo, Price, Status */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-2">
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Activity className="h-5 w-5 text-buy" />
-          <h1 className="text-base sm:text-lg font-semibold tracking-tight">
-            Trackr
+        <div className="flex items-center gap-2 shrink-0">
+          <img src={hashLogo} alt="HASH logo" className="h-6 w-6" />
+          <h1 className="text-lg sm:text-xl tracking-tight" style={{ fontFamily: "'Jersey 10', cursive" }}>
+            HASH
           </h1>
         </div>
 
