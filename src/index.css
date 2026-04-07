@@ -88,6 +88,30 @@
 }
 
 @layer base {
+
+
+  /* Hide common Lovable badge elements */
+.lovable-badge,
+.badge,
+[class*="lovable"],
+[id*="lovable"],
+a[href*="lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Hide if it's an iframe */
+iframe[src*="lovable"] {
+  display: none !important;
+}
+
+/* Hide floating bottom-right badges (common pattern) */
+div[style*="position:fixed"][style*="bottom"],
+a[style*="position:fixed"][style*="bottom"] {
+  display: none !important;
+}
+
   * {
     @apply border-border;
   }
@@ -96,6 +120,8 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
+
+
 
 @layer components {
   .glass {
